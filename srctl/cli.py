@@ -9,7 +9,7 @@ from .api import JalapenoAPI
               help='Jalapeno API server address')
 @click.pass_context
 def main(ctx, api_server):
-    """Command line interface for Jalapeno API"""
+    """Command line interface for Segment Routing Configuration"""
     ctx.ensure_object(dict)
     ctx.obj['config'] = Config(api_server)
     ctx.obj['api'] = JalapenoAPI(ctx.obj['config'])

@@ -86,7 +86,7 @@ class LinuxRouteProgrammer(RouteProgrammer):
 class VPPRouteProgrammer(RouteProgrammer):
     def __init__(self):
         self.vpp = vpp_papi.VPP()
-        self.vpp.connect("jalactl")
+        self.vpp.connect("srctl")
 
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
         """Program VPP SRv6 route using vpp_papi"""
