@@ -1,5 +1,6 @@
 import requests
 from urllib.parse import urlencode
+from .route_programmer import RouteProgrammerFactory
 
 class JalapenoAPI:
     def __init__(self, config):
@@ -37,10 +38,23 @@ class JalapenoAPI:
                 response = requests.get(final_url)
                 response.raise_for_status()
                 
+                # Get the SRv6 USID from the response
+                srv6_usid = response.json().get('srv6_data', {}).get('srv6_usid')
+                
+                # Program the route
+                programmer = RouteProgrammerFactory.get_programmer(path_request['platform'])
+                success, message = programmer.program_route(
+                    destination_prefix=path_request['destination_prefix'],
+                    srv6_usid=srv6_usid,
+                    outbound_interface=path_request.get('outbound_interface'),
+                    bsid=path_request.get('bsid')
+                )
+                
                 results.append({
                     'name': path_request['name'],
-                    'status': 'success',
-                    'data': response.json()
+                    'status': 'success' if success else 'error',
+                    'data': response.json(),
+                    'route_programming': message
                 })
             except Exception as e:
                 results.append({
