@@ -1,6 +1,7 @@
 from pyroute2 import IPRoute
 import vpp_papi
 from abc import ABC, abstractmethod
+import os
 
 class RouteProgrammer(ABC):
     @abstractmethod
@@ -9,11 +10,18 @@ class RouteProgrammer(ABC):
 
 class LinuxRouteProgrammer(RouteProgrammer):
     def __init__(self):
+        if os.geteuid() != 0:
+            raise PermissionError("Root privileges required for route programming. Please run with sudo.")
         self.iproute = IPRoute()
 
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
         """Program Linux SRv6 route using pyroute2"""
         try:
+            if not destination_prefix:
+                raise ValueError("destination_prefix is required")
+            if not kwargs.get('outbound_interface'):
+                raise ValueError("outbound_interface is required")
+            
             # Get interface index
             if_index = self.iproute.link_lookup(ifname=kwargs.get('outbound_interface'))[0]
             
@@ -28,12 +36,13 @@ class LinuxRouteProgrammer(RouteProgrammer):
                              oif=if_index,
                              encap=encap)
             
-            return True, "Route programmed successfully"
+            return True, f"Route to {destination_prefix} via {srv6_usid} programmed successfully"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
         
     def __del__(self):
-        self.iproute.close()
+        if hasattr(self, 'iproute'):
+            self.iproute.close()
 
 class VPPRouteProgrammer(RouteProgrammer):
     def __init__(self):
