@@ -1,0 +1,6 @@
+apiVersion: jalapeno/v1
+kind: Configuration
+metadata:
+  name: api-server-config
+spec:
+  apiServer: http://198.18.128.101:30800
