@@ -18,5 +18,5 @@ spec:
     pathType: shortest_path
     source: hosts/rome
     destination: hosts/amsterdam
-    destination_prefix: "10.101.1.0/24"
+    destination_prefix: "10.101.2.0/24"
     outbound_interface: "ens192" 
