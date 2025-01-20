@@ -2,6 +2,7 @@ from pyroute2 import IPRoute
 import vpp_papi
 from abc import ABC, abstractmethod
 import os
+import ipaddress
 
 class RouteProgrammer(ABC):
     @abstractmethod
@@ -22,6 +23,23 @@ class LinuxRouteProgrammer(RouteProgrammer):
             if not kwargs.get('outbound_interface'):
                 raise ValueError("outbound_interface is required")
             
+            # Validate and normalize the destination prefix
+            try:
+                # This will raise an exception if the prefix is invalid
+                net = ipaddress.ip_network(destination_prefix)
+                dst = {'dst': str(net)}
+            except ValueError as e:
+                raise ValueError(f"Invalid destination prefix: {e}")
+
+            # Validate and normalize the SRv6 USID
+            try:
+                # Remove trailing colons if present
+                srv6_usid = srv6_usid.rstrip(':')
+                # Validate as an IPv6 address
+                ipaddress.IPv6Address(srv6_usid)
+            except ValueError as e:
+                raise ValueError(f"Invalid SRv6 USID: {e}")
+            
             # Get interface index
             if_index = self.iproute.link_lookup(ifname=kwargs.get('outbound_interface'))[0]
             
@@ -32,7 +50,7 @@ class LinuxRouteProgrammer(RouteProgrammer):
             
             # Add route
             self.iproute.route('add',
-                             dst=destination_prefix,
+                             dst=str(net),
                              oif=if_index,
                              encap=encap)
             
@@ -56,6 +74,19 @@ class VPPRouteProgrammer(RouteProgrammer):
             if not bsid:
                 raise ValueError("BSID is required for VPP routes")
 
+            # Validate the destination prefix
+            try:
+                net = ipaddress.ip_network(destination_prefix)
+            except ValueError as e:
+                raise ValueError(f"Invalid destination prefix: {e}")
+
+            # Validate the SRv6 USID
+            try:
+                srv6_usid = srv6_usid.rstrip(':')
+                ipaddress.IPv6Address(srv6_usid)
+            except ValueError as e:
+                raise ValueError(f"Invalid SRv6 USID: {e}")
+
             # Add SR policy
             self.vpp.sr_policy_add(
                 bsid=bsid,
@@ -67,16 +98,17 @@ class VPPRouteProgrammer(RouteProgrammer):
             self.vpp.sr_steering_add_del(
                 is_del=0,
                 traffic_type=3,  # L3 traffic
-                prefix=destination_prefix,
+                prefix=str(net),
                 sr_policy_index=bsid
             )
             
-            return True, "Route programmed successfully"
+            return True, f"Route to {destination_prefix} via {srv6_usid} programmed successfully"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
 
     def __del__(self):
-        self.vpp.disconnect()
+        if hasattr(self, 'vpp'):
+            self.vpp.disconnect()
 
 class RouteProgrammerFactory:
     @staticmethod
