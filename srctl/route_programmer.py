@@ -85,8 +85,12 @@ class LinuxRouteProgrammer(RouteProgrammer):
 
 class VPPRouteProgrammer(RouteProgrammer):
     def __init__(self):
-        self.vpp = vpp_papi.VPP()
-        self.vpp.connect("srctl")
+        try:
+            from vpp_papi import VPPApiClient
+            self.vpp = VPPApiClient()
+            self.vpp.connect("srctl")
+        except Exception as e:
+            raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
         """Program VPP SRv6 route using vpp_papi"""
@@ -108,19 +112,30 @@ class VPPRouteProgrammer(RouteProgrammer):
             except ValueError as e:
                 raise ValueError(f"Invalid SRv6 USID: {e}")
 
+            # Convert string addresses to binary format
+            bsid_addr = ipaddress.IPv6Address(bsid).packed
+            srv6_usid_addr = ipaddress.IPv6Address(srv6_usid).packed
+
             # Add SR policy
-            self.vpp.sr_policy_add(
-                bsid=bsid,
-                segments=[srv6_usid],
-                is_encap=1
+            self.vpp.sr_policy_add_v2(
+                bsid_addr=bsid_addr,
+                sids={'weight': 1, 'segments': [srv6_usid_addr]},
+                is_encap=1,
+                is_spray=0,
+                type=0
             )
 
             # Add steering policy
+            prefix_addr = ipaddress.IPv6Address(str(net.network_address)).packed
             self.vpp.sr_steering_add_del(
                 is_del=0,
-                traffic_type=3,  # L3 traffic
-                prefix=str(net),
-                sr_policy_index=bsid
+                bsid_addr=bsid_addr,
+                sr_policy_index=0,  # Not used when bsid is specified
+                table_id=0,
+                prefix_addr=prefix_addr,
+                prefix_len=net.prefixlen,
+                sw_if_index=4294967295,  # INVALID_INDEX for L3 traffic
+                traffic_type=3  # L3 traffic
             )
             
             return True, f"Route to {destination_prefix} via {srv6_usid} programmed successfully"
