@@ -15,6 +15,20 @@ class LinuxRouteProgrammer(RouteProgrammer):
             raise PermissionError("Root privileges required for route programming. Please run with sudo.")
         self.iproute = IPRoute()
 
+    def _expand_srv6_usid(self, usid):
+        """Expand SRv6 USID to full IPv6 address"""
+        # Remove any trailing colons
+        usid = usid.rstrip(':')
+        
+        # Split the USID into parts
+        parts = usid.split(':')
+        
+        # Add zeros to make it a complete IPv6 address (8 parts)
+        while len(parts) < 8:
+            parts.append('0')
+            
+        return ':'.join(parts)
+
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
         """Program Linux SRv6 route using pyroute2"""
         try:
@@ -25,7 +39,6 @@ class LinuxRouteProgrammer(RouteProgrammer):
             
             # Validate and normalize the destination prefix
             try:
-                # This will raise an exception if the prefix is invalid
                 net = ipaddress.ip_network(destination_prefix)
                 dst = {'dst': str(net)}
             except ValueError as e:
@@ -33,10 +46,9 @@ class LinuxRouteProgrammer(RouteProgrammer):
 
             # Validate and normalize the SRv6 USID
             try:
-                # Remove trailing colons if present
-                srv6_usid = srv6_usid.rstrip(':')
+                expanded_usid = self._expand_srv6_usid(srv6_usid)
                 # Validate as an IPv6 address
-                ipaddress.IPv6Address(srv6_usid)
+                ipaddress.IPv6Address(expanded_usid)
             except ValueError as e:
                 raise ValueError(f"Invalid SRv6 USID: {e}")
             
@@ -46,7 +58,9 @@ class LinuxRouteProgrammer(RouteProgrammer):
             # Create encap info
             encap = {'type': 'seg6',
                     'mode': 'encap',
-                    'segs': [srv6_usid]}
+                    'segs': [expanded_usid]}
+            
+            print(f"Adding route with encap: {encap}")  # Debug print
             
             # Add route
             self.iproute.route('add',
@@ -54,7 +68,7 @@ class LinuxRouteProgrammer(RouteProgrammer):
                              oif=if_index,
                              encap=encap)
             
-            return True, f"Route to {destination_prefix} via {srv6_usid} programmed successfully"
+            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
         
