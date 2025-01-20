@@ -130,11 +130,13 @@ class VPPRouteProgrammer(RouteProgrammer):
             bsid_addr = ipaddress.IPv6Address(bsid).packed
 
             # Add SR policy
-            self.vpp.sr_policy_add_v2(
+            self.vpp.sr_policy_add(
                 bsid_addr=bsid_addr,
-                sids={'weight': 1, 'segments': [srv6_usid_addr]},
+                weight=1,
+                segments=[srv6_usid_addr],
                 is_encap=1,
                 is_spray=0,
+                fib_table=0,
                 type=0
             )
 
