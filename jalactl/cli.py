@@ -31,23 +31,25 @@ def apply(ctx, filename, verbose):
         
         for result in results:
             if result['status'] == 'error':
-                click.echo(f"Error for {result['name']}: {result.get('error', 'Unknown error')}", err=True)
+                click.echo(f"Error for {result['name']}: {result['error']}", err=True)
                 continue
                 
             if verbose == 0:
-                # Simple output - just name and SRv6 USID
                 usid = result['data'].get('srv6_data', {}).get('srv6_usid', 'N/A')
-                click.echo(f"{result['name']}: {usid}")
+                route_msg = result.get('route_programming', '')
+                click.echo(f"{result['name']}: {usid} {route_msg}")
             elif verbose == 1:
-                # More detailed - include all SRv6 data
                 srv6_data = result['data'].get('srv6_data', {})
                 click.echo(f"\n{result['name']}:")
                 click.echo(f"  SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
                 click.echo(f"  SID List: {srv6_data.get('srv6_sid_list', [])}")
+                if 'route_programming' in result:
+                    click.echo(f"  Route Programming: {result['route_programming']}")
             else:
-                # Full output
                 click.echo(f"\n{result['name']}:")
                 click.echo(yaml.dump(result['data'], indent=2))
+                if 'route_programming' in result:
+                    click.echo(f"Route Programming: {result['route_programming']}")
                 
     except Exception as e:
         click.echo(f"Error applying configuration: {str(e)}", err=True)

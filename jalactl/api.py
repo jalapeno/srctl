@@ -42,33 +42,41 @@ class JalapenoAPI:
                 
                 # Construct final URL with query parameters
                 final_url = f"{base_url}?{urlencode(params)}"
+                print(f"Making request to: {final_url}")  # Debug print
                 
                 # Make the request
                 response = requests.get(final_url)
                 if not response.ok:
-                    raise requests.exceptions.RequestException(
-                        f"API request failed with status {response.status_code}: {response.text}"
-                    )
+                    error_msg = f"API request failed with status {response.status_code}: {response.text}"
+                    print(f"API Error: {error_msg}")  # Debug print
+                    raise requests.exceptions.RequestException(error_msg)
                 
                 response_data = response.json()
                 srv6_usid = response_data.get('srv6_data', {}).get('srv6_usid')
                 
                 if 'platform' in path_request:
-                    # Program the route
-                    programmer = RouteProgrammerFactory.get_programmer(path_request['platform'])
-                    success, message = programmer.program_route(
-                        destination_prefix=path_request.get('destination_prefix'),
-                        srv6_usid=srv6_usid,
-                        outbound_interface=path_request.get('outbound_interface'),
-                        bsid=path_request.get('bsid')
-                    )
-                    
-                    results.append({
-                        'name': path_request['name'],
-                        'status': 'success' if success else 'error',
-                        'data': response_data,
-                        'route_programming': message
-                    })
+                    try:
+                        # Program the route
+                        programmer = RouteProgrammerFactory.get_programmer(path_request['platform'])
+                        success, message = programmer.program_route(
+                            destination_prefix=path_request.get('destination_prefix'),
+                            srv6_usid=srv6_usid,
+                            outbound_interface=path_request.get('outbound_interface'),
+                            bsid=path_request.get('bsid')
+                        )
+                        
+                        if not success:
+                            raise Exception(f"Route programming failed: {message}")
+                        
+                        results.append({
+                            'name': path_request['name'],
+                            'status': 'success',
+                            'data': response_data,
+                            'route_programming': message
+                        })
+                    except Exception as e:
+                        print(f"Route Programming Error: {str(e)}")  # Debug print
+                        raise
                 else:
                     results.append({
                         'name': path_request['name'],
@@ -76,17 +84,11 @@ class JalapenoAPI:
                         'data': response_data
                     })
                     
-            except requests.exceptions.RequestException as e:
-                results.append({
-                    'name': path_request.get('name', 'unknown'),
-                    'status': 'error',
-                    'error': f"API request failed: {str(e)}"
-                })
             except Exception as e:
                 results.append({
                     'name': path_request.get('name', 'unknown'),
                     'status': 'error',
-                    'error': f"Error processing request: {str(e)}"
+                    'error': f"Error: {str(e)}"
                 })
         
         return results 
