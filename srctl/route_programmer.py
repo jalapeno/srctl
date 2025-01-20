@@ -89,6 +89,13 @@ class VPPRouteProgrammer(RouteProgrammer):
             from vpp_papi import VPPApiClient
             self.vpp = VPPApiClient()
             self.vpp.connect("srctl")
+            
+            # Debug: Print available methods
+            print("Available VPP API methods:")
+            methods = [method for method in dir(self.vpp) if not method.startswith('_')]
+            for method in sorted(methods):
+                print(f"  - {method}")
+                
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
