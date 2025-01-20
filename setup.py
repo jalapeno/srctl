@@ -8,6 +8,8 @@ setup(
         "click",
         "requests",
         "pyyaml",
+        "pyroute2",
+        "vpp-papi"
     ],
     entry_points={
         "console_scripts": [

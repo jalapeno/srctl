@@ -1,5 +1,11 @@
 # jalactl
 
+## Install jalactl
+
+```
+pip install -e .
+```
+
 ## Usage
 
 # Using default API server (http://localhost:8000)
