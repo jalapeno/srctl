@@ -8,6 +8,9 @@ class JalapenoAPI:
 
     def apply(self, data):
         """Send configuration to Jalapeno API"""
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid configuration format: expected dict, got {type(data)}")
+            
         if data.get('kind') == 'PathRequest':
             return self._handle_path_requests(data)
         else:
@@ -16,10 +19,16 @@ class JalapenoAPI:
     def _handle_path_requests(self, data):
         """Handle multiple PathRequest resources"""
         spec = data.get('spec', [])
+        if not spec:
+            raise ValueError("No path requests found in spec")
+            
         results = []
         
         for path_request in spec:
             try:
+                if not isinstance(path_request, dict):
+                    raise ValueError(f"Invalid path request format: {path_request}")
+                
                 # Build the base URL with optional metric
                 base_url = f"{self.config.base_url}/api/v1/graphs/{path_request['graph']}/shortest_path"
                 if 'metric' in path_request:
@@ -39,28 +48,43 @@ class JalapenoAPI:
                 response.raise_for_status()
                 
                 # Get the SRv6 USID from the response
-                srv6_usid = response.json().get('srv6_data', {}).get('srv6_usid')
+                response_data = response.json()
+                srv6_usid = response_data.get('srv6_data', {}).get('srv6_usid')
                 
-                # Program the route
-                programmer = RouteProgrammerFactory.get_programmer(path_request['platform'])
-                success, message = programmer.program_route(
-                    destination_prefix=path_request['destination_prefix'],
-                    srv6_usid=srv6_usid,
-                    outbound_interface=path_request.get('outbound_interface'),
-                    bsid=path_request.get('bsid')
-                )
-                
+                if 'platform' in path_request:
+                    # Program the route
+                    programmer = RouteProgrammerFactory.get_programmer(path_request['platform'])
+                    success, message = programmer.program_route(
+                        destination_prefix=path_request.get('destination_prefix'),
+                        srv6_usid=srv6_usid,
+                        outbound_interface=path_request.get('outbound_interface'),
+                        bsid=path_request.get('bsid')
+                    )
+                    
+                    results.append({
+                        'name': path_request['name'],
+                        'status': 'success' if success else 'error',
+                        'data': response_data,
+                        'route_programming': message
+                    })
+                else:
+                    results.append({
+                        'name': path_request['name'],
+                        'status': 'success',
+                        'data': response_data
+                    })
+                    
+            except requests.exceptions.RequestException as e:
                 results.append({
-                    'name': path_request['name'],
-                    'status': 'success' if success else 'error',
-                    'data': response.json(),
-                    'route_programming': message
+                    'name': path_request.get('name', 'unknown'),
+                    'status': 'error',
+                    'error': f"API request failed: {str(e)}"
                 })
             except Exception as e:
                 results.append({
-                    'name': path_request['name'],
+                    'name': path_request.get('name', 'unknown'),
                     'status': 'error',
-                    'error': str(e)
+                    'error': f"Error processing request: {str(e)}"
                 })
         
         return results 

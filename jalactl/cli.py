@@ -25,12 +25,13 @@ def apply(ctx, filename, verbose):
     try:
         with open(filename, 'r') as f:
             config = yaml.safe_load(f)
+            click.echo(f"Loaded configuration from {filename}")
         
         results = ctx.obj['api'].apply(config)
         
         for result in results:
             if result['status'] == 'error':
-                click.echo(f"Error for {result['name']}: {result['error']}", err=True)
+                click.echo(f"Error for {result['name']}: {result.get('error', 'Unknown error')}", err=True)
                 continue
                 
             if verbose == 0:
@@ -50,6 +51,9 @@ def apply(ctx, filename, verbose):
                 
     except Exception as e:
         click.echo(f"Error applying configuration: {str(e)}", err=True)
+        if verbose > 0:
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
 
 if __name__ == '__main__':
     main() 
