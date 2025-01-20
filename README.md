@@ -4,6 +4,8 @@
 
 ```
 pip install -e .
+su -
+pip install -e /home/cisco/srctl
 ```
 
 ## Usage

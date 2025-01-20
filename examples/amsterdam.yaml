@@ -3,13 +3,13 @@ kind: PathRequest
 metadata:
   name: amsterdam-routes
 spec:
-  - name: amsterdam-to-berlin
+  - name: amsterdam-to-rome
     platform: vpp
     graph: ipv6_graph
     pathType: shortest_path
     source: hosts/amsterdam
-    destination: hosts/berlin
-    destination_prefix: "fc00:0:101:2::/64"
+    destination: hosts/rome
+    destination_prefix: "fc00:0:107:1::/64"
     bsid: "101::101"  # for vpp routes
   # - name: amsterdam-to-rome
   #   graph: ipv4_graph
