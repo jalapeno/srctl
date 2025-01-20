@@ -47,7 +47,6 @@ class LinuxRouteProgrammer(RouteProgrammer):
             # Validate and normalize the SRv6 USID
             try:
                 expanded_usid = self._expand_srv6_usid(srv6_usid)
-                # Validate as an IPv6 address
                 ipaddress.IPv6Address(expanded_usid)
             except ValueError as e:
                 raise ValueError(f"Invalid SRv6 USID: {e}")
@@ -60,9 +59,17 @@ class LinuxRouteProgrammer(RouteProgrammer):
                     'mode': 'encap',
                     'segs': [expanded_usid]}
             
-            print(f"Adding route with encap: {encap}")  # Debug print
+            # Try to delete existing route first
+            try:
+                self.iproute.route('del', dst=str(net))
+                print(f"Deleted existing route to {str(net)}")
+            except Exception as e:
+                # Ignore errors if route doesn't exist
+                pass
             
-            # Add route
+            print(f"Adding route with encap: {encap}")
+            
+            # Add new route
             self.iproute.route('add',
                              dst=str(net),
                              oif=if_index,
