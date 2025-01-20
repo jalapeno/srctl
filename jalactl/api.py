@@ -45,9 +45,11 @@ class JalapenoAPI:
                 
                 # Make the request
                 response = requests.get(final_url)
-                response.raise_for_status()
+                if not response.ok:
+                    raise requests.exceptions.RequestException(
+                        f"API request failed with status {response.status_code}: {response.text}"
+                    )
                 
-                # Get the SRv6 USID from the response
                 response_data = response.json()
                 srv6_usid = response_data.get('srv6_data', {}).get('srv6_usid')
                 
