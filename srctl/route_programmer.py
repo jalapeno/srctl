@@ -100,7 +100,9 @@ class VPPRouteProgrammer(RouteProgrammer):
                 raise RuntimeError("Failed to access VPP CLI")
                 
             self.version = result.stdout.strip()
-            print(f"Connected to VPP version: {self.version}")
+            # Only print version if verbose logging is enabled
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Connected to VPP version: {self.version}")
             
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
@@ -126,35 +128,32 @@ class VPPRouteProgrammer(RouteProgrammer):
             if not bsid:
                 raise ValueError("BSID is required for VPP routes")
 
-            # Validate the destination prefix
+            # Validate inputs
             try:
                 net = ipaddress.ip_network(destination_prefix)
-            except ValueError as e:
-                raise ValueError(f"Invalid destination prefix: {e}")
-
-            # Validate and expand the SRv6 USID
-            try:
                 expanded_usid = self._expand_srv6_usid(srv6_usid)
             except ValueError as e:
-                raise ValueError(f"Invalid SRv6 USID: {e}")
+                raise ValueError(f"Invalid input parameters: {str(e)}")
 
-            # First, add the SR policy
+            # Add SR policy
             policy_cmd = f"sr policy add bsid {bsid} next {expanded_usid} encap"
-            print(f"Executing: vppctl {policy_cmd}")
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Executing: vppctl {policy_cmd}")
             result = self.subprocess.run(['vppctl'] + policy_cmd.split(), 
                                       capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to add SR policy: {result.stderr}")
 
-            # Then, add the steering policy
+            # Add steering policy
             steer_cmd = f"sr steer l3 {destination_prefix} via bsid {bsid}"
-            print(f"Executing: vppctl {steer_cmd}")
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Executing: vppctl {steer_cmd}")
             result = self.subprocess.run(['vppctl'] + steer_cmd.split(), 
                                       capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to add steering policy: {result.stderr}")
             
-            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully"
+            return True, f"Route programmed successfully"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
 

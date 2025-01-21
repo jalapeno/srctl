@@ -27,3 +27,9 @@ srctl --api-server http://api.jalapeno.example.com:8000 apply -f rome.yaml
 export JALAPENO_API_SERVER=http://api.jalapeno.example.com:8080
 srctl apply -f rome.yaml
 ```
+
+For verbose vpp debugging:
+```
+export VPP_DEBUG=1
+sudo srctl --api-server http://198.18.128.101:30800 apply -f examples/amsterdam.yaml
+```
