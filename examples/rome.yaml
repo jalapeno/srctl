@@ -29,10 +29,10 @@ spec:
       tableId: 100
       ipv4:
         routes:
-          - name: customer1-to-dc
+          - name: customer1-to-berlin
             graph: ipv4_graph
             pathType: shortest_path
             source: hosts/rome
-            destination: hosts/dc
+            destination: hosts/berlin
             destination_prefix: "10.200.0.0/24"
             outbound_interface: "ens192"
