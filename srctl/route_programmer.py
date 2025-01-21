@@ -145,7 +145,7 @@ class VPPRouteProgrammer(RouteProgrammer):
             # Add SR policy using lower-level API
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
-                'segments': [srv6_usid_addr],  # Changed from nested sids structure to flat list
+                'next': [srv6_usid_addr],  # Changed from segments to next
                 'is_encap': 1,
             }
             
@@ -153,7 +153,8 @@ class VPPRouteProgrammer(RouteProgrammer):
             self.vpp.api.sr_policy_add(**sr_policy_add)
 
             # Add steering policy using lower-level API
-            prefix_addr = ipaddress.IPv6Address(str(net.network_address)).packed
+            prefix_addr = ipaddress.IPv6Address(str(net.network_address)).packed if isinstance(net, ipaddress.IPv6Network) else ipaddress.IPv4Address(str(net.network_address)).packed
+            
             sr_steering_add = {
                 'is_del': 0,
                 'bsid_addr': bsid_addr,
