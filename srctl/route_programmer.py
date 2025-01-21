@@ -9,6 +9,35 @@ class RouteProgrammer(ABC):
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
         pass
 
+    def delete_route(self, destination_prefix, **kwargs):
+        """Delete VPP SRv6 route using CLI"""
+        try:
+            bsid = kwargs.get('bsid')
+            if not bsid:
+                raise ValueError("BSID is required for VPP routes")
+
+            # Delete steering policy first
+            steer_cmd = f"sr steer del l3 {destination_prefix}"
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Executing: vppctl {steer_cmd}")
+            result = self.subprocess.run(['vppctl'] + steer_cmd.split(), 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to delete steering policy: {result.stderr}")
+
+            # Then delete SR policy
+            policy_cmd = f"sr policy del bsid {bsid}"
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Executing: vppctl {policy_cmd}")
+            result = self.subprocess.run(['vppctl'] + policy_cmd.split(), 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to delete SR policy: {result.stderr}")
+            
+            return True, f"Route deleted successfully"
+        except Exception as e:
+            return False, f"Failed to delete route: {str(e)}"
+
 class LinuxRouteProgrammer(RouteProgrammer):
     def __init__(self):
         if os.geteuid() != 0:
@@ -156,6 +185,35 @@ class VPPRouteProgrammer(RouteProgrammer):
             return True, f"Route programmed successfully"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
+
+    def delete_route(self, destination_prefix, **kwargs):
+        """Delete VPP SRv6 route using CLI"""
+        try:
+            bsid = kwargs.get('bsid')
+            if not bsid:
+                raise ValueError("BSID is required for VPP routes")
+
+            # Delete steering policy first
+            steer_cmd = f"sr steer del l3 {destination_prefix}"
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Executing: vppctl {steer_cmd}")
+            result = self.subprocess.run(['vppctl'] + steer_cmd.split(), 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to delete steering policy: {result.stderr}")
+
+            # Then delete SR policy
+            policy_cmd = f"sr policy del bsid {bsid}"
+            if 'VPP_DEBUG' in os.environ:
+                print(f"Executing: vppctl {policy_cmd}")
+            result = self.subprocess.run(['vppctl'] + policy_cmd.split(), 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to delete SR policy: {result.stderr}")
+            
+            return True, f"Route deleted successfully"
+        except Exception as e:
+            return False, f"Failed to delete route: {str(e)}"
 
     def __del__(self):
         pass  # No cleanup needed for CLI approach

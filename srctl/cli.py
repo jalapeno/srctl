@@ -57,5 +57,40 @@ def apply(ctx, filename, verbose):
             import traceback
             click.echo(traceback.format_exc(), err=True)
 
+@main.command()
+@click.option('-f', '--filename', required=True, type=click.Path(exists=True),
+              help='YAML file containing the configuration to delete')
+@click.option('-v', '--verbose', count=True,
+              help='Increase output verbosity (-v for detailed, -vv for full output)')
+@click.pass_context
+def delete(ctx, filename, verbose):
+    """Delete a configuration from file"""
+    try:
+        with open(filename, 'r') as f:
+            config = yaml.safe_load(f)
+            click.echo(f"Loaded configuration from {filename}")
+        
+        results = ctx.obj['api'].delete(config)
+        
+        for result in results:
+            if result['status'] == 'error':
+                click.echo(f"Error deleting {result['name']}: {result['error']}", err=True)
+                continue
+                
+            if verbose == 0:
+                click.echo(f"{result['name']}: {result['message']}")
+            elif verbose == 1:
+                click.echo(f"\n{result['name']}:")
+                click.echo(f"  Message: {result['message']}")
+            else:
+                click.echo(f"\n{result['name']}:")
+                click.echo(yaml.dump(result, indent=2))
+                
+    except Exception as e:
+        click.echo(f"Error deleting configuration: {str(e)}", err=True)
+        if verbose > 0:
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
+
 if __name__ == '__main__':
     main() 
