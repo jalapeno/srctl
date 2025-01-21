@@ -144,12 +144,9 @@ class VPPRouteProgrammer(RouteProgrammer):
             # Add SR policy using lower-level API
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
-                'weight': 1,
-                'sids': {'sids': [srv6_usid_addr]},  # Changed from 'segments' to 'sids'
-                'is_encap': 1,
-                'is_spray': 0,
-                'fib_table': table_id,
-                'behavior': 0  # Changed from 'type' to 'behavior'
+                'sids': {'sids': [srv6_usid_addr]},
+                'encap': 1,  # Changed from is_encap to encap
+                'spray': 0,  # Changed from is_spray to spray
             }
             
             print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
@@ -160,13 +157,11 @@ class VPPRouteProgrammer(RouteProgrammer):
             sr_steering_add = {
                 'is_del': 0,
                 'bsid_addr': bsid_addr,
-                'sr_policy_index': 0,  # Not used when bsid is specified
                 'table_id': table_id,
                 'prefix': {
                     'address': prefix_addr,
                     'len': net.prefixlen
                 },
-                'sw_if_index': 4294967295,  # INVALID_INDEX for L3 traffic
                 'traffic_type': 3  # L3 traffic
             }
             
