@@ -5,6 +5,7 @@ from .route_programmer import RouteProgrammerFactory
 class JalapenoAPI:
     def __init__(self, config):
         self.config = config
+        self.debug = False  # Can be set via environment variable if needed
 
     def apply(self, data):
         """Send configuration to Jalapeno API"""
@@ -67,52 +68,40 @@ class JalapenoAPI:
                     'destination': route['destination']
                 }
                 
-                # Construct final URL with query parameters
-                final_url = f"{base_url}?{urlencode(params)}"
-                print(f"Making request to: {final_url}")  # Debug print
-                
                 # Make the request
+                final_url = f"{base_url}?{urlencode(params)}"
                 response = requests.get(final_url)
                 if not response.ok:
-                    error_msg = f"API request failed with status {response.status_code}: {response.text}"
-                    print(f"API Error: {error_msg}")  # Debug print
-                    raise requests.exceptions.RequestException(error_msg)
+                    raise requests.exceptions.RequestException(
+                        f"API request failed with status {response.status_code}: {response.text}"
+                    )
                 
                 response_data = response.json()
-                print(f"API Response: {response_data}")  # Debug: Print full response
-                
                 srv6_data = response_data.get('srv6_data', {})
-                print(f"SRv6 Data: {srv6_data}")  # Debug: Print SRv6 data
-                
                 srv6_usid = srv6_data.get('srv6_usid')
-                print(f"SRv6 USID: {srv6_usid}")  # Debug: Print USID
                 
                 if not srv6_usid:
                     raise ValueError("No SRv6 USID received from API")
                 
-                try:
-                    # Program the route
-                    programmer = RouteProgrammerFactory.get_programmer(platform)
-                    success, message = programmer.program_route(
-                        destination_prefix=route.get('destination_prefix'),
-                        srv6_usid=srv6_usid,
-                        outbound_interface=route.get('outbound_interface'),
-                        bsid=route.get('bsid'),
-                        table_id=table_id
-                    )
-                    
-                    if not success:
-                        raise Exception(f"Route programming failed: {message}")
-                    
-                    results.append({
-                        'name': route['name'],
-                        'status': 'success',
-                        'data': response_data,
-                        'route_programming': message
-                    })
-                except Exception as e:
-                    print(f"Route Programming Error: {str(e)}")  # Debug print
-                    raise
+                # Program the route
+                programmer = RouteProgrammerFactory.get_programmer(platform)
+                success, message = programmer.program_route(
+                    destination_prefix=route.get('destination_prefix'),
+                    srv6_usid=srv6_usid,
+                    outbound_interface=route.get('outbound_interface'),
+                    bsid=route.get('bsid'),
+                    table_id=table_id
+                )
+                
+                if not success:
+                    raise Exception(f"Route programming failed: {message}")
+                
+                results.append({
+                    'name': route['name'],
+                    'status': 'success',
+                    'data': response_data,
+                    'route_programming': message
+                })
                     
             except Exception as e:
                 results.append({
