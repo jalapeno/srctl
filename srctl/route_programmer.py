@@ -142,6 +142,13 @@ class VPPRouteProgrammer(RouteProgrammer):
             # Convert BSID to binary format
             bsid_addr = ipaddress.IPv6Address(bsid).packed
 
+            # Create the sid list structure
+            sid_list = {
+                'num_sids': 1,
+                'weight': 1,
+                'sids': [srv6_usid_addr]
+            }
+
             # Add SR policy using lower-level API
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
@@ -149,10 +156,8 @@ class VPPRouteProgrammer(RouteProgrammer):
                 'is_encap': 1,
                 'is_spray': 0,
                 'fib_table': table_id,
-                'sids': {
-                    'num_sids': 1,
-                    'sids': [srv6_usid_addr]
-                }
+                'sid_lists': [sid_list],  # List of sid lists
+                'n_sid_lists': 1  # Number of sid lists
             }
             
             print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
