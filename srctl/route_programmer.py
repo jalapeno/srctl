@@ -93,6 +93,11 @@ class VPPRouteProgrammer(RouteProgrammer):
             from vpp_papi import VPPApiClient
             self.vpp = VPPApiClient()
             self.vpp.connect("srctl")
+            
+            # Get VPP version
+            version = self.vpp.api.show_version()
+            self.version = version.version
+            print(f"Connected to VPP version: {self.version}")
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
@@ -140,11 +145,11 @@ class VPPRouteProgrammer(RouteProgrammer):
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
                 'weight': 1,
-                'segments': [srv6_usid_addr],
+                'sids': {'sids': [srv6_usid_addr]},  # Changed from 'segments' to 'sids'
                 'is_encap': 1,
                 'is_spray': 0,
                 'fib_table': table_id,
-                'type': 0
+                'behavior': 0  # Changed from 'type' to 'behavior'
             }
             
             print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
@@ -157,8 +162,10 @@ class VPPRouteProgrammer(RouteProgrammer):
                 'bsid_addr': bsid_addr,
                 'sr_policy_index': 0,  # Not used when bsid is specified
                 'table_id': table_id,
-                'prefix_addr': prefix_addr,
-                'prefix_len': net.prefixlen,
+                'prefix': {
+                    'address': prefix_addr,
+                    'len': net.prefixlen
+                },
                 'sw_if_index': 4294967295,  # INVALID_INDEX for L3 traffic
                 'traffic_type': 3  # L3 traffic
             }
