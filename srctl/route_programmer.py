@@ -93,13 +93,6 @@ class VPPRouteProgrammer(RouteProgrammer):
             from vpp_papi import VPPApiClient
             self.vpp = VPPApiClient()
             self.vpp.connect("srctl")
-            
-            # Debug: Print available methods
-            print("Available VPP API methods:")
-            methods = [method for method in dir(self.vpp) if not method.startswith('_')]
-            for method in sorted(methods):
-                print(f"  - {method}")
-                
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
@@ -143,29 +136,35 @@ class VPPRouteProgrammer(RouteProgrammer):
             # Convert BSID to binary format
             bsid_addr = ipaddress.IPv6Address(bsid).packed
 
-            # Add SR policy
-            self.vpp.sr_policy_add(
-                bsid_addr=bsid_addr,
-                weight=1,
-                segments=[srv6_usid_addr],
-                is_encap=1,
-                is_spray=0,
-                fib_table=table_id,
-                type=0
-            )
+            # Add SR policy using lower-level API
+            sr_policy_add = {
+                'bsid_addr': bsid_addr,
+                'weight': 1,
+                'segments': [srv6_usid_addr],
+                'is_encap': 1,
+                'is_spray': 0,
+                'fib_table': table_id,
+                'type': 0
+            }
+            
+            print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
+            self.vpp.api.sr_policy_add(**sr_policy_add)
 
-            # Add steering policy
+            # Add steering policy using lower-level API
             prefix_addr = ipaddress.IPv6Address(str(net.network_address)).packed
-            self.vpp.sr_steering_add_del(
-                is_del=0,
-                bsid_addr=bsid_addr,
-                sr_policy_index=0,  # Not used when bsid is specified
-                table_id=table_id,
-                prefix_addr=prefix_addr,
-                prefix_len=net.prefixlen,
-                sw_if_index=4294967295,  # INVALID_INDEX for L3 traffic
-                traffic_type=3  # L3 traffic
-            )
+            sr_steering_add = {
+                'is_del': 0,
+                'bsid_addr': bsid_addr,
+                'sr_policy_index': 0,  # Not used when bsid is specified
+                'table_id': table_id,
+                'prefix_addr': prefix_addr,
+                'prefix_len': net.prefixlen,
+                'sw_if_index': 4294967295,  # INVALID_INDEX for L3 traffic
+                'traffic_type': 3  # L3 traffic
+            }
+            
+            print(f"Sending sr_steering_add_del: {sr_steering_add}")  # Debug print
+            self.vpp.api.sr_steering_add_del(**sr_steering_add)
             
             return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully in table {table_id}"
         except Exception as e:
