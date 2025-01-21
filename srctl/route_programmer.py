@@ -37,6 +37,9 @@ class LinuxRouteProgrammer(RouteProgrammer):
             if not kwargs.get('outbound_interface'):
                 raise ValueError("outbound_interface is required")
             
+            # Get table ID, default to main table (254)
+            table_id = kwargs.get('table_id', 254)
+            
             # Validate and normalize the destination prefix
             try:
                 net = ipaddress.ip_network(destination_prefix)
@@ -61,21 +64,22 @@ class LinuxRouteProgrammer(RouteProgrammer):
             
             # Try to delete existing route first
             try:
-                self.iproute.route('del', dst=str(net))
-                print(f"Deleted existing route to {str(net)}")
+                self.iproute.route('del', table=table_id, dst=str(net))
+                print(f"Deleted existing route to {str(net)} in table {table_id}")
             except Exception as e:
                 # Ignore errors if route doesn't exist
                 pass
             
-            print(f"Adding route with encap: {encap}")
+            print(f"Adding route with encap: {encap} to table {table_id}")
             
             # Add new route
             self.iproute.route('add',
+                             table=table_id,
                              dst=str(net),
                              oif=if_index,
                              encap=encap)
             
-            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully"
+            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully in table {table_id}"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
         
@@ -120,6 +124,9 @@ class VPPRouteProgrammer(RouteProgrammer):
             if not bsid:
                 raise ValueError("BSID is required for VPP routes")
 
+            # Get table ID, default to 0
+            table_id = kwargs.get('table_id', 0)
+
             # Validate the destination prefix
             try:
                 net = ipaddress.ip_network(destination_prefix)
@@ -143,7 +150,7 @@ class VPPRouteProgrammer(RouteProgrammer):
                 segments=[srv6_usid_addr],
                 is_encap=1,
                 is_spray=0,
-                fib_table=0,
+                fib_table=table_id,
                 type=0
             )
 
@@ -153,14 +160,14 @@ class VPPRouteProgrammer(RouteProgrammer):
                 is_del=0,
                 bsid_addr=bsid_addr,
                 sr_policy_index=0,  # Not used when bsid is specified
-                table_id=0,
+                table_id=table_id,
                 prefix_addr=prefix_addr,
                 prefix_len=net.prefixlen,
                 sw_if_index=4294967295,  # INVALID_INDEX for L3 traffic
                 traffic_type=3  # L3 traffic
             )
             
-            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully"
+            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully in table {table_id}"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
 

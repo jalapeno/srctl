@@ -18,26 +18,53 @@ class JalapenoAPI:
 
     def _handle_path_requests(self, data):
         """Handle multiple PathRequest resources"""
-        spec = data.get('spec', [])
+        spec = data.get('spec', {})
         if not spec:
-            raise ValueError("No path requests found in spec")
+            raise ValueError("No spec found in configuration")
             
         results = []
+        platform = spec.get('platform')
+        if not platform:
+            raise ValueError("Platform must be specified in spec")
+
+        # Process default VRF/table routes
+        default_vrf = spec.get('defaultVrf', {})
+        results.extend(self._process_address_family(default_vrf.get('ipv4', {}), platform, 'ipv4', table_id=0))
+        results.extend(self._process_address_family(default_vrf.get('ipv6', {}), platform, 'ipv6', table_id=0))
+
+        # Process VRF/table-specific routes
+        for vrf in spec.get('vrfs', []):
+            table_id = vrf.get('tableId')
+            if table_id is None:
+                raise ValueError(f"tableId must be specified for VRF {vrf.get('name')}")
+            
+            results.extend(self._process_address_family(vrf.get('ipv4', {}), platform, 'ipv4', table_id=table_id))
+            results.extend(self._process_address_family(vrf.get('ipv6', {}), platform, 'ipv6', table_id=table_id))
         
-        for path_request in spec:
+        return results
+
+    def _process_address_family(self, af_config, platform, af_type, table_id):
+        """Process routes for a specific address family"""
+        results = []
+        routes = af_config.get('routes', [])
+        
+        for route in routes:
             try:
-                if not isinstance(path_request, dict):
-                    raise ValueError(f"Invalid path request format: {path_request}")
+                if not isinstance(route, dict):
+                    raise ValueError(f"Invalid route format: {route}")
+                
+                # Add table_id to route configuration
+                route['table_id'] = table_id
                 
                 # Build the base URL with optional metric
-                base_url = f"{self.config.base_url}/api/v1/graphs/{path_request['graph']}/shortest_path"
-                if 'metric' in path_request:
-                    base_url = f"{base_url}/{path_request['metric']}"
+                base_url = f"{self.config.base_url}/api/v1/graphs/{route['graph']}/shortest_path"
+                if 'metric' in route:
+                    base_url = f"{base_url}/{route['metric']}"
                 
                 # Add query parameters
                 params = {
-                    'source': path_request['source'],
-                    'destination': path_request['destination']
+                    'source': route['source'],
+                    'destination': route['destination']
                 }
                 
                 # Construct final URL with query parameters
@@ -52,41 +79,44 @@ class JalapenoAPI:
                     raise requests.exceptions.RequestException(error_msg)
                 
                 response_data = response.json()
-                srv6_usid = response_data.get('srv6_data', {}).get('srv6_usid')
+                print(f"API Response: {response_data}")  # Debug: Print full response
                 
-                if 'platform' in path_request:
-                    try:
-                        # Program the route
-                        programmer = RouteProgrammerFactory.get_programmer(path_request['platform'])
-                        success, message = programmer.program_route(
-                            destination_prefix=path_request.get('destination_prefix'),
-                            srv6_usid=srv6_usid,
-                            outbound_interface=path_request.get('outbound_interface'),
-                            bsid=path_request.get('bsid')
-                        )
-                        
-                        if not success:
-                            raise Exception(f"Route programming failed: {message}")
-                        
-                        results.append({
-                            'name': path_request['name'],
-                            'status': 'success',
-                            'data': response_data,
-                            'route_programming': message
-                        })
-                    except Exception as e:
-                        print(f"Route Programming Error: {str(e)}")  # Debug print
-                        raise
-                else:
+                srv6_data = response_data.get('srv6_data', {})
+                print(f"SRv6 Data: {srv6_data}")  # Debug: Print SRv6 data
+                
+                srv6_usid = srv6_data.get('srv6_usid')
+                print(f"SRv6 USID: {srv6_usid}")  # Debug: Print USID
+                
+                if not srv6_usid:
+                    raise ValueError("No SRv6 USID received from API")
+                
+                try:
+                    # Program the route
+                    programmer = RouteProgrammerFactory.get_programmer(platform)
+                    success, message = programmer.program_route(
+                        destination_prefix=route.get('destination_prefix'),
+                        srv6_usid=srv6_usid,
+                        outbound_interface=route.get('outbound_interface'),
+                        bsid=route.get('bsid'),
+                        table_id=table_id
+                    )
+                    
+                    if not success:
+                        raise Exception(f"Route programming failed: {message}")
+                    
                     results.append({
-                        'name': path_request['name'],
+                        'name': route['name'],
                         'status': 'success',
-                        'data': response_data
+                        'data': response_data,
+                        'route_programming': message
                     })
+                except Exception as e:
+                    print(f"Route Programming Error: {str(e)}")  # Debug print
+                    raise
                     
             except Exception as e:
                 results.append({
-                    'name': path_request.get('name', 'unknown'),
+                    'name': route.get('name', 'unknown'),
                     'status': 'error',
                     'error': f"Error: {str(e)}"
                 })
