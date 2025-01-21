@@ -99,13 +99,6 @@ class VPPRouteProgrammer(RouteProgrammer):
             self.version = version.version
             print(f"Connected to VPP version: {self.version}")
             
-            # Debug: Print sr_policy_add details
-            print("\nsr_policy_add API details:")
-            policy_add = self.vpp.api.sr_policy_add
-            print(f"Method name: {policy_add.__name__}")
-            print(f"Method doc: {policy_add.__doc__}")
-            print(f"Method args: {dir(policy_add)}")
-            
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
@@ -153,9 +146,13 @@ class VPPRouteProgrammer(RouteProgrammer):
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
                 'weight': 1,
-                'n_segments': 1,  # Number of segments
-                'segments': [srv6_usid_addr],  # Try with segments again
                 'is_encap': 1,
+                'is_spray': 0,
+                'fib_table': table_id,
+                'sids': {
+                    'num_sids': 1,
+                    'sids': [srv6_usid_addr]
+                }
             }
             
             print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
