@@ -90,13 +90,16 @@ class LinuxRouteProgrammer(RouteProgrammer):
 class VPPRouteProgrammer(RouteProgrammer):
     def __init__(self):
         try:
-            from vpp_papi import VPPApiClient
-            self.vpp = VPPApiClient()
-            self.vpp.connect("srctl")
+            import subprocess
+            self.subprocess = subprocess
             
-            # Get VPP version
-            version = self.vpp.api.show_version()
-            self.version = version.version
+            # Test VPP CLI access
+            result = self.subprocess.run(['vppctl', 'show', 'version'], 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError("Failed to access VPP CLI")
+                
+            self.version = result.stdout.strip()
             print(f"Connected to VPP version: {self.version}")
             
         except Exception as e:
@@ -117,14 +120,11 @@ class VPPRouteProgrammer(RouteProgrammer):
         return ':'.join(parts)
 
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
-        """Program VPP SRv6 route using vpp_papi"""
+        """Program VPP SRv6 route using CLI"""
         try:
             bsid = kwargs.get('bsid')
             if not bsid:
                 raise ValueError("BSID is required for VPP routes")
-
-            # Get table ID, default to 0
-            table_id = kwargs.get('table_id', 0)
 
             # Validate the destination prefix
             try:
@@ -135,50 +135,31 @@ class VPPRouteProgrammer(RouteProgrammer):
             # Validate and expand the SRv6 USID
             try:
                 expanded_usid = self._expand_srv6_usid(srv6_usid)
-                srv6_usid_addr = ipaddress.IPv6Address(expanded_usid).packed
             except ValueError as e:
                 raise ValueError(f"Invalid SRv6 USID: {e}")
 
-            # Convert BSID to binary format
-            bsid_addr = ipaddress.IPv6Address(bsid).packed
+            # First, add the SR policy
+            policy_cmd = f"sr policy add bsid {bsid} next {expanded_usid} encap"
+            print(f"Executing: vppctl {policy_cmd}")
+            result = self.subprocess.run(['vppctl'] + policy_cmd.split(), 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to add SR policy: {result.stderr}")
 
-            # Add SR policy using lower-level API - simplified structure
-            sr_policy_add = {
-                'bsid_addr': bsid_addr,
-                'weight': 1,
-                'is_encap': 1,
-                'is_spray': 0,
-                'fib_table': table_id,
-                'sid_list': [srv6_usid_addr]  # Simple list of SIDs
-            }
+            # Then, add the steering policy
+            steer_cmd = f"sr steer l3 {destination_prefix} via bsid {bsid}"
+            print(f"Executing: vppctl {steer_cmd}")
+            result = self.subprocess.run(['vppctl'] + steer_cmd.split(), 
+                                      capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to add steering policy: {result.stderr}")
             
-            print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
-            self.vpp.api.sr_policy_add(**sr_policy_add)
-
-            # Add steering policy using lower-level API
-            prefix_addr = ipaddress.IPv4Address(str(net.network_address)).packed if isinstance(net, ipaddress.IPv4Network) else ipaddress.IPv6Address(str(net.network_address)).packed
-            
-            sr_steering_add = {
-                'is_del': 0,
-                'bsid_addr': bsid_addr,
-                'table_id': table_id,
-                'prefix': {
-                    'address': prefix_addr,
-                    'len': net.prefixlen
-                },
-                'traffic_type': 3  # L3 traffic
-            }
-            
-            print(f"Sending sr_steering_add_del: {sr_steering_add}")  # Debug print
-            self.vpp.api.sr_steering_add_del(**sr_steering_add)
-            
-            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully in table {table_id}"
+            return True, f"Route to {destination_prefix} via {expanded_usid} programmed successfully"
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
 
     def __del__(self):
-        if hasattr(self, 'vpp'):
-            self.vpp.disconnect()
+        pass  # No cleanup needed for CLI approach
 
 class RouteProgrammerFactory:
     @staticmethod
