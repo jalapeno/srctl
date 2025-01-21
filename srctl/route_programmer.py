@@ -94,10 +94,17 @@ class VPPRouteProgrammer(RouteProgrammer):
             self.vpp = VPPApiClient()
             self.vpp.connect("srctl")
             
-            # Get VPP version
+            # Get VPP version and API details
             version = self.vpp.api.show_version()
             self.version = version.version
             print(f"Connected to VPP version: {self.version}")
+            
+            # Debug: Print available API methods and their parameters
+            print("\nAvailable SR methods:")
+            for method in dir(self.vpp.api):
+                if method.startswith('sr_'):
+                    print(f"  - {method}")
+                    
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
@@ -145,8 +152,7 @@ class VPPRouteProgrammer(RouteProgrammer):
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
                 'sids': {'sids': [srv6_usid_addr]},
-                'encap': 1,  # Changed from is_encap to encap
-                'spray': 0,  # Changed from is_spray to spray
+                'is_encap': 1,  # Back to is_encap
             }
             
             print(f"Sending sr_policy_add: {sr_policy_add}")  # Debug print
