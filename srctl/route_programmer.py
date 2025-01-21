@@ -99,6 +99,13 @@ class VPPRouteProgrammer(RouteProgrammer):
             self.version = version.version
             print(f"Connected to VPP version: {self.version}")
             
+            # Debug: Print sr_policy_add details
+            print("\nsr_policy_add API details:")
+            policy_add = self.vpp.api.sr_policy_add
+            print(f"Method name: {policy_add.__name__}")
+            print(f"Method doc: {policy_add.__doc__}")
+            print(f"Method args: {dir(policy_add)}")
+            
         except Exception as e:
             raise RuntimeError(f"Failed to connect to VPP: {str(e)}")
 
@@ -145,7 +152,9 @@ class VPPRouteProgrammer(RouteProgrammer):
             # Add SR policy using lower-level API
             sr_policy_add = {
                 'bsid_addr': bsid_addr,
-                'next': [srv6_usid_addr],  # Changed from segments to next
+                'weight': 1,
+                'n_segments': 1,  # Number of segments
+                'segments': [srv6_usid_addr],  # Try with segments again
                 'is_encap': 1,
             }
             
@@ -153,7 +162,7 @@ class VPPRouteProgrammer(RouteProgrammer):
             self.vpp.api.sr_policy_add(**sr_policy_add)
 
             # Add steering policy using lower-level API
-            prefix_addr = ipaddress.IPv6Address(str(net.network_address)).packed if isinstance(net, ipaddress.IPv6Network) else ipaddress.IPv4Address(str(net.network_address)).packed
+            prefix_addr = ipaddress.IPv4Address(str(net.network_address)).packed if isinstance(net, ipaddress.IPv4Network) else ipaddress.IPv6Address(str(net.network_address)).packed
             
             sr_steering_add = {
                 'is_del': 0,
