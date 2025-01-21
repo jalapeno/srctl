@@ -9,34 +9,9 @@ class RouteProgrammer(ABC):
     def program_route(self, destination_prefix, srv6_usid, **kwargs):
         pass
 
+    @abstractmethod
     def delete_route(self, destination_prefix, **kwargs):
-        """Delete VPP SRv6 route using CLI"""
-        try:
-            bsid = kwargs.get('bsid')
-            if not bsid:
-                raise ValueError("BSID is required for VPP routes")
-
-            # Delete steering policy first
-            steer_cmd = f"sr steer del l3 {destination_prefix}"
-            if 'VPP_DEBUG' in os.environ:
-                print(f"Executing: vppctl {steer_cmd}")
-            result = self.subprocess.run(['vppctl'] + steer_cmd.split(), 
-                                      capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(f"Failed to delete steering policy: {result.stderr}")
-
-            # Then delete SR policy
-            policy_cmd = f"sr policy del bsid {bsid}"
-            if 'VPP_DEBUG' in os.environ:
-                print(f"Executing: vppctl {policy_cmd}")
-            result = self.subprocess.run(['vppctl'] + policy_cmd.split(), 
-                                      capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(f"Failed to delete SR policy: {result.stderr}")
-            
-            return True, f"Route deleted successfully"
-        except Exception as e:
-            return False, f"Failed to delete route: {str(e)}"
+        pass
 
 class LinuxRouteProgrammer(RouteProgrammer):
     def __init__(self):
@@ -112,6 +87,33 @@ class LinuxRouteProgrammer(RouteProgrammer):
         except Exception as e:
             return False, f"Failed to program route: {str(e)}"
         
+    def delete_route(self, destination_prefix, **kwargs):
+        """Delete Linux SRv6 route using pyroute2"""
+        try:
+            if not destination_prefix:
+                raise ValueError("destination_prefix is required")
+            
+            # Get table ID, default to main table (254)
+            table_id = kwargs.get('table_id', 254)
+            
+            # Validate and normalize the destination prefix
+            try:
+                net = ipaddress.ip_network(destination_prefix)
+            except ValueError as e:
+                raise ValueError(f"Invalid destination prefix: {e}")
+            
+            # Delete the route
+            try:
+                self.iproute.route('del', table=table_id, dst=str(net))
+                return True, f"Route to {destination_prefix} deleted successfully from table {table_id}"
+            except Exception as e:
+                if "No such process" in str(e):
+                    return False, f"Route to {destination_prefix} not found in table {table_id}"
+                raise
+                
+        except Exception as e:
+            return False, f"Failed to delete route: {str(e)}"
+
     def __del__(self):
         if hasattr(self, 'iproute'):
             self.iproute.close()
