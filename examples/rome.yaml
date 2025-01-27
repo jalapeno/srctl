@@ -32,6 +32,7 @@ spec:
           - name: customer1-to-berlin
             graph: ipv4_graph
             pathType: shortest_path
+            metric: latency
             source: hosts/rome
             destination: hosts/berlin
             destination_prefix: "10.200.0.0/24"

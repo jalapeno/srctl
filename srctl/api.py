@@ -65,8 +65,13 @@ class JalapenoAPI:
                 # Add query parameters
                 params = {
                     'source': route['source'],
-                    'destination': route['destination']
+                    'destination': route['destination'],
+                    'direction': route.get('direction', 'outbound')  # Default to outbound
                 }
+                
+                # Add sovereignty-specific parameters
+                if route.get('metric') == 'sovereignty' and 'excluded_countries' in route:
+                    params['excluded_countries'] = ','.join(route['excluded_countries'])
                 
                 # Make the request
                 final_url = f"{base_url}?{urlencode(params)}"

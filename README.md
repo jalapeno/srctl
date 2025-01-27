@@ -35,5 +35,6 @@ sudo srctl --api-server http://198.18.128.101:30800 apply -f examples/amsterdam.
 sudo srctl --api-server http://198.18.128.101:30800 apply -f examples/rome.yaml
 
 sudo srctl --api-server http://198.18.128.101:30800 delete -f examples/amsterdam.yaml
+sudo srctl --api-server http://198.18.128.101:30800 delete -f examples/rome.yaml
 
 ```
