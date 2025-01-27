@@ -1,0 +1,19 @@
+apiVersion: jalapeno.srv6/v1
+kind: PathRequest
+metadata:
+  name: amsterdam-routes
+spec:
+  platform: vpp
+  defaultVrf:
+    ipv6:
+      routes:
+        - name: berlin-to-rome-v6
+          graph: ipv6_graph
+          pathType: shortest_path
+          metric: sovereignty
+          excluded_countries: 
+            - FRA
+          direction: outbound
+          source: hosts/berlin-k8s
+          destination: hosts/rome
+          destination_prefix: "fc00:0:107:1::/64"

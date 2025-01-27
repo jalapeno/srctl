@@ -49,6 +49,13 @@ class JalapenoAPI:
         results = []
         routes = af_config.get('routes', [])
         
+        # Define metric mapping from kebab-case to API endpoints
+        metric_mapping = {
+            'low-latency': 'latency',
+            'least-utilized': 'utilization',
+            'data-sovereignty': 'sovereignty'
+        }
+        
         for route in routes:
             try:
                 if not isinstance(route, dict):
@@ -60,7 +67,11 @@ class JalapenoAPI:
                 # Build the base URL with optional metric
                 base_url = f"{self.config.base_url}/api/v1/graphs/{route['graph']}/shortest_path"
                 if 'metric' in route:
-                    base_url = f"{base_url}/{route['metric']}"
+                    # Map the metric name to API endpoint
+                    api_metric = metric_mapping.get(route['metric'])
+                    if not api_metric:
+                        raise ValueError(f"Unsupported metric: {route['metric']}")
+                    base_url = f"{base_url}/{api_metric}"
                 
                 # Add query parameters
                 params = {
@@ -70,7 +81,7 @@ class JalapenoAPI:
                 }
                 
                 # Add sovereignty-specific parameters
-                if route.get('metric') == 'sovereignty' and 'excluded_countries' in route:
+                if route.get('metric') == 'data-sovereignty' and 'excluded_countries' in route:
                     params['excluded_countries'] = ','.join(route['excluded_countries'])
                 
                 # Make the request
