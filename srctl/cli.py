@@ -170,7 +170,7 @@ def get_paths(ctx, filename, source, destination, graph, path_type, direction,
                     click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
                     if path.get('countries_traversed'):
                         countries = [c for sublist in path['countries_traversed'] if sublist for c in sublist]
-                        click.echo(f"    Countries: {', '.join(countries)}")
+                        click.echo(f"    Countries Traversed: {', '.join(countries)}")
             
             else:
                 # Full output
