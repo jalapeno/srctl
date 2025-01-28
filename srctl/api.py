@@ -199,4 +199,94 @@ class JalapenoAPI:
                     'error': f"Error: {str(e)}"
                 })
         
+        return results
+
+    def get_paths(self, source, destination, graph='ipv6_graph', path_type='best-paths', 
+                 direction='outbound', limit=None, same_hop_limit=None, plus_one_limit=None):
+        """Get best paths between source and destination"""
+        try:
+            # Build the base URL
+            base_url = f"{self.config.base_url}/api/v1/graphs/{graph}/shortest_path/{path_type}"
+            
+            # Build parameters
+            params = {
+                'source': source,
+                'destination': destination,
+                'direction': direction
+            }
+            
+            # Add optional parameters
+            if path_type == 'best-paths' and limit is not None:
+                params['limit'] = limit
+            elif path_type == 'next-best-path':
+                if same_hop_limit is not None:
+                    params['same_hop_limit'] = same_hop_limit
+                if plus_one_limit is not None:
+                    params['plus_one_limit'] = plus_one_limit
+            
+            # Make the request
+            final_url = f"{base_url}?{urlencode(params)}"
+            response = requests.get(final_url)
+            if not response.ok:
+                raise requests.exceptions.RequestException(
+                    f"API request failed with status {response.status_code}: {response.text}"
+                )
+            
+            return response.json()
+                
+        except Exception as e:
+            raise Exception(f"Failed to get paths: {str(e)}")
+
+    def get_paths_from_yaml(self, data):
+        """Get paths from YAML configuration"""
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid configuration format: expected dict, got {type(data)}")
+            
+        if data.get('kind') != 'PathRequest':
+            raise ValueError(f"Unsupported resource kind: {data.get('kind')}")
+
+        spec = data.get('spec', {})
+        if not spec:
+            raise ValueError("No spec found in configuration")
+            
+        results = []
+        
+        # Process routes from all VRFs
+        for vrf_type in ['defaultVrf', 'vrfs']:
+            vrfs = spec.get(vrf_type, [])
+            if vrf_type == 'defaultVrf':
+                vrfs = [vrfs]  # Make it a list for consistent processing
+                
+            for vrf in vrfs:
+                for af_type in ['ipv4', 'ipv6']:
+                    af_config = vrf.get(af_type, {})
+                    routes = af_config.get('routes', [])
+                    
+                    for route in routes:
+                        try:
+                            path_type = route.get('path_type', 'best-paths')
+                            paths = self.get_paths(
+                                source=route['source'],
+                                destination=route['destination'],
+                                graph=route['graph'],
+                                path_type=path_type,
+                                direction=route.get('direction', 'outbound'),
+                                limit=route.get('limit'),
+                                same_hop_limit=route.get('same_hop_limit'),
+                                plus_one_limit=route.get('plus_one_limit')
+                            )
+                            
+                            results.append({
+                                'name': route.get('name', f"{route['source']}-to-{route['destination']}"),
+                                'status': 'success',
+                                'data': paths
+                            })
+                            
+                        except Exception as e:
+                            results.append({
+                                'name': route.get('name', 'unknown'),
+                                'status': 'error',
+                                'error': str(e)
+                            })
+        
         return results 

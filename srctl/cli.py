@@ -92,5 +92,87 @@ def delete(ctx, filename, verbose):
             import traceback
             click.echo(traceback.format_exc(), err=True)
 
+@main.command()
+@click.option('-f', '--filename', type=click.Path(exists=True),
+              help='YAML file containing the path request configuration')
+@click.option('-s', '--source',
+              help='Source node')
+@click.option('-d', '--destination',
+              help='Destination node')
+@click.option('-g', '--graph', default='ipv6_graph',
+              help='Graph to use (default: ipv6_graph)')
+@click.option('-t', '--type', 'path_type', type=click.Choice(['best-paths', 'next-best-path']),
+              default='best-paths', help='Type of paths to retrieve')
+@click.option('--direction', default='outbound',
+              help='Direction of paths (default: outbound)')
+@click.option('--limit', type=int,
+              help='Limit number of paths (for best-paths)')
+@click.option('--same-hop-limit', type=int,
+              help='Limit number of same-hop paths (for next-best-path)')
+@click.option('--plus-one-limit', type=int,
+              help='Limit number of plus-one-hop paths (for next-best-path)')
+@click.option('-v', '--verbose', count=True,
+              help='Increase output verbosity (-v for detailed, -vv for full output)')
+@click.pass_context
+def get_paths(ctx, filename, source, destination, graph, path_type, direction,
+              limit, same_hop_limit, plus_one_limit, verbose):
+    """Get best paths between source and destination"""
+    try:
+        if filename:
+            with open(filename, 'r') as f:
+                config = yaml.safe_load(f)
+                click.echo(f"Loaded configuration from {filename}")
+            results = ctx.obj['api'].get_paths_from_yaml(config)
+        else:
+            if not source or not destination:
+                raise click.UsageError("Both --source and --destination are required when not using a config file")
+            
+            result = ctx.obj['api'].get_paths(
+                source=source,
+                destination=destination,
+                graph=graph,
+                path_type=path_type,
+                direction=direction,
+                limit=limit,
+                same_hop_limit=same_hop_limit,
+                plus_one_limit=plus_one_limit
+            )
+            results = [{
+                'name': f"{source}-to-{destination}",
+                'status': 'success',
+                'data': result
+            }]
+        
+        # Display results
+        for result in results:
+            if result['status'] == 'error':
+                click.echo(f"Error for {result['name']}: {result['error']}", err=True)
+                continue
+            
+            if verbose == 0:
+                # Simple output format
+                click.echo(f"\n{result['name']}:")
+                paths = result['data'].get('paths', [])
+                for i, path in enumerate(paths, 1):
+                    click.echo(f"  Path {i}: {path.get('srv6_usid', 'N/A')}")
+            elif verbose == 1:
+                # More detailed output
+                click.echo(f"\n{result['name']}:")
+                paths = result['data'].get('paths', [])
+                for i, path in enumerate(paths, 1):
+                    click.echo(f"  Path {i}:")
+                    click.echo(f"    SRv6 USID: {path.get('srv6_usid', 'N/A')}")
+                    click.echo(f"    SID List: {path.get('srv6_sid_list', [])}")
+            else:
+                # Full output
+                click.echo(f"\n{result['name']}:")
+                click.echo(yaml.dump(result['data'], indent=2))
+                
+    except Exception as e:
+        click.echo(f"Error getting paths: {str(e)}", err=True)
+        if verbose > 0:
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
+
 if __name__ == '__main__':
     main() 

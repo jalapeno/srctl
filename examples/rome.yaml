@@ -19,7 +19,7 @@ spec:
         - name: rome-to-amsterdam-v6
           graph: ipv6_graph
           pathType: shortest_path
-          metric: latency
+          metric: low-latency
           source: hosts/rome
           destination: hosts/amsterdam
           destination_prefix: "fc00:0:101:2::/64"
@@ -32,7 +32,7 @@ spec:
           - name: customer1-to-berlin
             graph: ipv4_graph
             pathType: shortest_path
-            metric: latency
+            metric: low-latency
             source: hosts/rome
             destination: hosts/berlin
             destination_prefix: "10.200.0.0/24"
