@@ -149,20 +149,29 @@ def get_paths(ctx, filename, source, destination, graph, path_type, direction,
                 click.echo(f"Error for {result['name']}: {result['error']}", err=True)
                 continue
             
+            paths = result['data'].get('paths', [])
+            total_paths = result['data'].get('total_paths_found', len(paths))
+            
             if verbose == 0:
                 # Simple output format
-                click.echo(f"\n{result['name']}:")
-                paths = result['data'].get('paths', [])
+                click.echo(f"\n{result['name']} (found {total_paths} paths):")
                 for i, path in enumerate(paths, 1):
-                    click.echo(f"  Path {i}: {path.get('srv6_usid', 'N/A')}")
+                    srv6_data = path.get('srv6_data', {})
+                    click.echo(f"  Path {i} SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
+            
             elif verbose == 1:
                 # More detailed output
-                click.echo(f"\n{result['name']}:")
-                paths = result['data'].get('paths', [])
+                click.echo(f"\n{result['name']} (found {total_paths} paths):")
                 for i, path in enumerate(paths, 1):
+                    srv6_data = path.get('srv6_data', {})
                     click.echo(f"  Path {i}:")
-                    click.echo(f"    SRv6 USID: {path.get('srv6_usid', 'N/A')}")
-                    click.echo(f"    SID List: {path.get('srv6_sid_list', [])}")
+                    click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
+                    click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
+                    click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
+                    if path.get('countries_traversed'):
+                        countries = [c for sublist in path['countries_traversed'] if sublist for c in sublist]
+                        click.echo(f"    Countries: {', '.join(countries)}")
+            
             else:
                 # Full output
                 click.echo(f"\n{result['name']}:")
