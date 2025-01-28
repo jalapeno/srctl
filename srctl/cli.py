@@ -166,7 +166,7 @@ def get_paths(ctx, filename, source, destination, graph, path_type, direction,
                 same_hop_paths = result['data'].get('same_hopcount_paths', [])
                 for i, path in enumerate(same_hop_paths, 1):
                     srv6_data = path.get('srv6_data', {})
-                    click.echo(f"  Alternative Path {i} SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
+                    click.echo(f"  Additional Best Path {i} SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
                 
                 # Show plus one hopcount alternatives
                 plus_one_paths = result['data'].get('plus_one_hopcount_paths', [])
@@ -194,7 +194,7 @@ def get_paths(ctx, filename, source, destination, graph, path_type, direction,
                 same_hop_paths = result['data'].get('same_hopcount_paths', [])
                 for i, path in enumerate(same_hop_paths, 1):
                     srv6_data = path.get('srv6_data', {})
-                    click.echo(f"\n  Alternative Path {i}:")
+                    click.echo(f"\n  Additional Best Path {i}:")
                     click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
                     click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
                     click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
