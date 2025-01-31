@@ -224,9 +224,14 @@ class JalapenoAPI:
                 if plus_one_limit is not None:
                     params['plus_one_limit'] = plus_one_limit
             
-            # Make the request
+            # Debug output
             final_url = f"{base_url}?{urlencode(params)}"
+            print(f"DEBUG: Making API request to: {final_url}")
+            
             response = requests.get(final_url)
+            print(f"DEBUG: Response status code: {response.status_code}")
+            print(f"DEBUG: Response content: {response.text[:200]}...")  # First 200 chars
+            
             if not response.ok:
                 raise requests.exceptions.RequestException(
                     f"API request failed with status {response.status_code}: {response.text}"
