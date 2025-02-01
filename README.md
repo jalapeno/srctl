@@ -2,6 +2,12 @@
 
 ## Install srctl
 
+1. cd into srctl directory
+```
+cd srctl
+```
+
+2. Install srctl
 ```
 pip install -e .
 su -
@@ -37,4 +43,14 @@ sudo srctl --api-server http://198.18.128.101:30800 apply -f examples/rome.yaml
 sudo srctl --api-server http://198.18.128.101:30800 delete -f examples/amsterdam.yaml
 sudo srctl --api-server http://198.18.128.101:30800 delete -f examples/rome.yaml
 
+```
+
+# Get paths
+```
+sudo srctl --api-server http://198.18.128.101:30800 get -f examples/test-paths.yaml
+```
+
+# Get paths without yaml or api server
+```
+srctl get-paths -s hosts/berlin-k8s -d hosts/rome --type next-best-path -v
 ```

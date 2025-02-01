@@ -236,39 +236,33 @@ class JalapenoAPI:
         except Exception as e:
             raise Exception(f"Failed to get paths: {str(e)}")
 
-    def get_paths_from_yaml(self, data):
+    def get_paths_from_yaml(self, config):
         """Get paths from YAML configuration"""
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid configuration format: expected dict, got {type(data)}")
-            
-        if data.get('kind') != 'PathRequest':
-            raise ValueError(f"Unsupported resource kind: {data.get('kind')}")
-
-        spec = data.get('spec', {})
-        if not spec:
-            raise ValueError("No spec found in configuration")
-            
         results = []
-        
-        # Process routes from all VRFs
-        for vrf_type in ['defaultVrf', 'vrfs']:
-            vrfs = spec.get(vrf_type, [])
-            if vrf_type == 'defaultVrf':
-                vrfs = [vrfs]  # Make it a list for consistent processing
-                
-            for vrf in vrfs:
-                for af_type in ['ipv4', 'ipv6']:
-                    af_config = vrf.get(af_type, {})
-                    routes = af_config.get('routes', [])
+        try:
+            if 'spec' not in config:
+                raise ValueError("Missing 'spec' in configuration")
+            
+            spec = config['spec']
+            if 'defaultVrf' not in spec:
+                raise ValueError("Missing 'defaultVrf' in spec")
+            
+            vrf = spec['defaultVrf']
+            print(f"DEBUG: Processing VRF config: {vrf}")  # Debug output
+            
+            for ip_version in ['ipv4', 'ipv6']:
+                if ip_version in vrf:
+                    routes = vrf[ip_version].get('routes', [])
+                    print(f"DEBUG: Found {len(routes)} routes for {ip_version}")  # Debug output
                     
                     for route in routes:
+                        print(f"DEBUG: Processing route: {route}")  # Debug output
                         try:
-                            path_type = route.get('path_type', 'best-paths')
-                            paths = self.get_paths(
+                            path_result = self.get_paths(
                                 source=route['source'],
                                 destination=route['destination'],
-                                graph=route['graph'],
-                                path_type=path_type,
+                                graph=route.get('graph', 'ipv6_graph'),
+                                path_type=route.get('path_type', 'best-paths'),
                                 direction=route.get('direction', 'outbound'),
                                 limit=route.get('limit'),
                                 same_hop_limit=route.get('same_hop_limit'),
@@ -278,14 +272,16 @@ class JalapenoAPI:
                             results.append({
                                 'name': route.get('name', f"{route['source']}-to-{route['destination']}"),
                                 'status': 'success',
-                                'data': paths
+                                'data': path_result
                             })
-                            
                         except Exception as e:
                             results.append({
-                                'name': route.get('name', 'unknown'),
+                                'name': route.get('name', f"{route['source']}-to-{route['destination']}"),
                                 'status': 'error',
                                 'error': str(e)
                             })
-        
-        return results 
+            
+            return results
+            
+        except Exception as e:
+            raise Exception(f"Failed to process YAML configuration: {str(e)}") 
