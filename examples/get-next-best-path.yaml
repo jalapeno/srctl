@@ -11,6 +11,6 @@ spec:
           path_type: next-best-path
           same_hop_limit: 2
           plus_one_limit: 1
-          source: hosts/amsterdam
+          source: hosts/berlin-k8s
           destination: hosts/rome
           direction: outbound
