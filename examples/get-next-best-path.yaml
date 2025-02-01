@@ -6,7 +6,7 @@ spec:
   defaultVrf:
     ipv6:
       routes:
-        - name: amsterdam-to-rome
+        - name: berlin-k8s-to-rome
           graph: ipv6_graph
           path_type: next-best-path
           same_hop_limit: 2
