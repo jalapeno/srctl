@@ -149,94 +149,46 @@ def get_paths(ctx, filename, source, destination, graph, path_type, direction,
                 click.echo(f"Error for {result['name']}: {result['error']}", err=True)
                 continue
             
-            paths = result['data'].get('paths', [])
-            total_paths = result['data'].get('total_paths_found', len(paths))
+            click.echo(f"\n{result['name']}:")
             
-            if verbose == 0:
-                # Simple output format
-                click.echo(f"\n{result['name']}:")
+            if path_type == 'next-best-path':
+                # Handle next-best-path format
+                shortest = result['data'].get('shortest_path', {})
+                if shortest:
+                    srv6_data = shortest.get('srv6_data', {})
+                    click.echo("  Best Path:")
+                    click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
+                    click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
+                    click.echo(f"    Hop Count: {shortest.get('hopcount', 'N/A')}")
                 
-                if path_type == 'next-best-path':
-                    # Handle next-best-path format
-                    shortest = result['data'].get('shortest_path', {})
-                    if shortest:
-                        srv6_data = shortest.get('srv6_data', {})
-                        click.echo(f"  Best Path SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
-                    
-                    same_hop_paths = result['data'].get('same_hopcount_paths', [])
-                    for i, path in enumerate(same_hop_paths, 1):
-                        srv6_data = path.get('srv6_data', {})
-                        click.echo(f"  Additional Best Path {i} SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
-                    
-                    plus_one_paths = result['data'].get('plus_one_hopcount_paths', [])
-                    for i, path in enumerate(plus_one_paths, 1):
-                        srv6_data = path.get('srv6_data', {})
-                        click.echo(f"  Next Best Path {i} SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
-                else:
-                    # Handle best-paths format
-                    for i, path in enumerate(paths, 1):
-                        srv6_data = path.get('srv6_data', {})
-                        click.echo(f"  Path {i} SRv6 uSID: {srv6_data.get('srv6_usid', 'N/A')}")
-            
-            elif verbose == 1:
-                # More detailed output
-                click.echo(f"\n{result['name']}:")
+                same_hop_paths = result['data'].get('same_hopcount_paths', [])
+                for i, path in enumerate(same_hop_paths, 1):
+                    srv6_data = path.get('srv6_data', {})
+                    click.echo(f"\n  Additional Best Path {i}:")
+                    click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
+                    click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
+                    click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
                 
-                if path_type == 'next-best-path':
-                    # Handle next-best-path format
-                    shortest = result['data'].get('shortest_path', {})
-                    if shortest:
-                        srv6_data = shortest.get('srv6_data', {})
-                        click.echo("  Best Path:")
-                        click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
-                        click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
-                        click.echo(f"    Hop Count: {shortest.get('hopcount', 'N/A')}")
-                        if shortest.get('countries_traversed'):
-                            countries = [c for sublist in shortest['countries_traversed'] if sublist for c in sublist]
-                            click.echo(f"    Countries Traversed: {', '.join(countries)}")
-                    
-                    same_hop_paths = result['data'].get('same_hopcount_paths', [])
-                    for i, path in enumerate(same_hop_paths, 1):
-                        srv6_data = path.get('srv6_data', {})
-                        click.echo(f"\n  Additional Best Path {i}:")
-                        click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
-                        click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
-                        click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
-                        if path.get('countries_traversed'):
-                            countries = [c for sublist in path['countries_traversed'] if sublist for c in sublist]
-                            click.echo(f"    Countries Traversed: {', '.join(countries)}")
-                    
-                    plus_one_paths = result['data'].get('plus_one_hopcount_paths', [])
-                    for i, path in enumerate(plus_one_paths, 1):
-                        srv6_data = path.get('srv6_data', {})
-                        click.echo(f"\n  Next Best Path {i}:")
-                        click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
-                        click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
-                        click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
-                        if path.get('countries_traversed'):
-                            countries = [c for sublist in path['countries_traversed'] if sublist for c in sublist]
-                            click.echo(f"    Countries Traversed: {', '.join(countries)}")
-                else:
-                    # Handle best-paths format
-                    paths = result['data'].get('paths', [])
-                    total = result['data'].get('total_paths_found', len(paths))
-                    click.echo(f"  Found {total} paths:")
-                    
-                    for i, path in enumerate(paths, 1):
-                        srv6_data = path.get('srv6_data', {})
-                        click.echo(f"\n  Path {i}:")
-                        click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
-                        click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
-                        click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
-                        if path.get('countries_traversed'):
-                            countries = [c for sublist in path['countries_traversed'] if sublist for c in sublist]
-                            click.echo(f"    Countries Traversed: {', '.join(countries)}")
-            
+                plus_one_paths = result['data'].get('plus_one_hopcount_paths', [])
+                for i, path in enumerate(plus_one_paths, 1):
+                    srv6_data = path.get('srv6_data', {})
+                    click.echo(f"\n  Next Best Path {i}:")
+                    click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
+                    click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
+                    click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
             else:
-                # Full output
-                click.echo(f"\n{result['name']}:")
-                click.echo(yaml.dump(result['data'], indent=2))
+                # Handle best-paths format
+                paths = result['data'].get('paths', [])
+                total = result['data'].get('total_paths_found', len(paths))
+                click.echo(f"  Found {total} paths:")
                 
+                for i, path in enumerate(paths, 1):
+                    srv6_data = path.get('srv6_data', {})
+                    click.echo(f"\n  Path {i}:")
+                    click.echo(f"    SRv6 USID: {srv6_data.get('srv6_usid', 'N/A')}")
+                    click.echo(f"    SID List: {srv6_data.get('srv6_sid_list', [])}")
+                    click.echo(f"    Hop Count: {path.get('hopcount', 'N/A')}")
+            
     except Exception as e:
         click.echo(f"Error getting paths: {str(e)}", err=True)
         if verbose > 0:
