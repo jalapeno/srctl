@@ -53,4 +53,6 @@ sudo srctl --api-server http://198.18.128.101:30800 get -f examples/test-paths.y
 # Get paths without yaml or api server
 ```
 srctl get-paths -s hosts/berlin-k8s -d hosts/rome --type next-best-path -v
+srctl get-paths -s hosts/berlin-k8s -d hosts/rome --type best-paths --limit 4 -v
+srctl get-paths -s hosts/berlin-k8s -d hosts/rome --type next-best-path --same-hop-limit 2 --plus-one-limit 1 -v
 ```
