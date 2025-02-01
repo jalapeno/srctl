@@ -224,7 +224,15 @@ class JalapenoAPI:
                 if plus_one_limit is not None:
                     params['plus_one_limit'] = plus_one_limit
             
+            # Debug output
+            print(f"DEBUG: API Request URL: {base_url}")
+            print(f"DEBUG: API Request Params: {params}")
+            
             response = requests.get(f"{base_url}", params=params)
+            
+            # Debug output
+            print(f"DEBUG: API Response Status: {response.status_code}")
+            print(f"DEBUG: API Response Content: {response.text[:200]}...")
             
             if not response.ok:
                 raise requests.exceptions.RequestException(
@@ -248,16 +256,27 @@ class JalapenoAPI:
                 raise ValueError("Missing 'defaultVrf' in spec")
             
             vrf = spec['defaultVrf']
-            print(f"DEBUG: Processing VRF config: {vrf}")  # Debug output
+            print(f"DEBUG: Processing VRF config: {vrf}")
             
             for ip_version in ['ipv4', 'ipv6']:
                 if ip_version in vrf:
                     routes = vrf[ip_version].get('routes', [])
-                    print(f"DEBUG: Found {len(routes)} routes for {ip_version}")  # Debug output
+                    print(f"DEBUG: Found {len(routes)} routes for {ip_version}")
                     
                     for route in routes:
-                        print(f"DEBUG: Processing route: {route}")  # Debug output
+                        print(f"DEBUG: Processing route: {route}")
                         try:
+                            # Debug output before API call
+                            print(f"DEBUG: Calling get_paths with:")
+                            print(f"  source: {route['source']}")
+                            print(f"  destination: {route['destination']}")
+                            print(f"  graph: {route.get('graph', 'ipv6_graph')}")
+                            print(f"  path_type: {route.get('path_type', 'best-paths')}")
+                            print(f"  direction: {route.get('direction', 'outbound')}")
+                            print(f"  limit: {route.get('limit')}")
+                            print(f"  same_hop_limit: {route.get('same_hop_limit')}")
+                            print(f"  plus_one_limit: {route.get('plus_one_limit')}")
+                            
                             path_result = self.get_paths(
                                 source=route['source'],
                                 destination=route['destination'],
