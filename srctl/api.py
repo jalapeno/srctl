@@ -35,16 +35,44 @@ class JalapenoAPI:
 
         # Process VRF/table-specific routes
         for vrf in spec.get('vrfs', []):
+            vrf_name = vrf.get('name')
             table_id = vrf.get('tableId')
             if table_id is None:
-                raise ValueError(f"tableId must be specified for VRF {vrf.get('name')}")
+                raise ValueError(f"tableId must be specified for VRF {vrf_name}")
             
-            results.extend(self._process_address_family(vrf.get('ipv4', {}), platform, 'ipv4', table_id=table_id))
-            results.extend(self._process_address_family(vrf.get('ipv6', {}), platform, 'ipv6', table_id=table_id))
+            # Create VRF if requested
+            if vrf.get('createVrf', False):
+                programmer = RouteProgrammerFactory.get_programmer(platform)
+                success, message = programmer.create_vrf(vrf_name, table_id, 
+                                                       rd=vrf.get('rd'),
+                                                       import_rts=vrf.get('importRts', []),
+                                                       export_rts=vrf.get('exportRts', []))
+                
+                if not success:
+                    results.append({
+                        'name': f"VRF {vrf_name}",
+                        'status': 'error',
+                        'error': message
+                    })
+                    continue
+                
+                results.append({
+                    'name': f"VRF {vrf_name}",
+                    'status': 'success',
+                    'message': message
+                })
+            
+            # Process VRF routes
+            results.extend(self._process_address_family(vrf.get('ipv4', {}), platform, 'ipv4', 
+                                                      table_id=table_id, vrf_name=vrf_name, 
+                                                      is_l3vpn=True))
+            results.extend(self._process_address_family(vrf.get('ipv6', {}), platform, 'ipv6', 
+                                                      table_id=table_id, vrf_name=vrf_name,
+                                                      is_l3vpn=True))
         
         return results
 
-    def _process_address_family(self, af_config, platform, af_type, table_id):
+    def _process_address_family(self, af_config, platform, af_type, table_id, vrf_name=None, is_l3vpn=False):
         """Process routes for a specific address family"""
         results = []
         routes = af_config.get('routes', [])
@@ -281,4 +309,101 @@ class JalapenoAPI:
             return results
             
         except Exception as e:
-            raise Exception(f"Failed to process YAML configuration: {str(e)}") 
+            raise Exception(f"Failed to process YAML configuration: {str(e)}")
+
+    def get_l3vpn_prefixes_by_rt(self, route_target, collection='l3vpn_v4_prefix', limit=100):
+        """Get all L3VPN prefixes for a specific route target"""
+        try:
+            url = f"{self.config.base_url}/api/v1/vpns/{collection}/prefixes/by-rt"
+            params = {
+                'route_target': route_target,
+                'limit': limit
+            }
+            
+            response = requests.get(url, params=params)
+            if not response.ok:
+                raise requests.exceptions.RequestException(
+                    f"API request failed with status {response.status_code}: {response.text}"
+                )
+            
+            return response.json()
+        except Exception as e:
+            raise Exception(f"Failed to get L3VPN prefixes by route target: {str(e)}")
+
+    def get_l3vpn_prefix(self, prefix, route_target, collection='l3vpn_v4_prefix', exact_match=False):
+        """Get a specific L3VPN prefix for a route target"""
+        try:
+            url = f"{self.config.base_url}/api/v1/vpns/{collection}/prefixes/search"
+            params = {
+                'prefix': prefix,
+                'route_target': route_target,
+                'prefix_exact': 'true' if exact_match else 'false'
+            }
+            
+            response = requests.get(url, params=params)
+            if not response.ok:
+                raise requests.exceptions.RequestException(
+                    f"API request failed with status {response.status_code}: {response.text}"
+                )
+            
+            return response.json()
+        except Exception as e:
+            raise Exception(f"Failed to get L3VPN prefix: {str(e)}")
+
+    def apply_l3vpn_routes(self, platform, prefixes_data, table_id=None, outbound_interface=None, bsid=None):
+        """Apply L3VPN routes from API response data"""
+        results = []
+        
+        # Get the programmer for the specified platform
+        programmer = RouteProgrammerFactory.get_programmer(platform)
+        
+        # Process each prefix in the response
+        for prefix_data in prefixes_data.get('prefixes', []):
+            try:
+                # Extract prefix information
+                prefix = prefix_data.get('prefix')
+                prefix_len = prefix_data.get('prefix_len')
+                destination_prefix = f"{prefix}/{prefix_len}"
+                
+                # Get SID - handle both string and array formats
+                sid = prefix_data.get('sid')
+                if isinstance(sid, list) and sid:
+                    sid = sid[0]  # Take the first SID if it's an array
+                
+                if not sid:
+                    raise ValueError(f"No SID found for prefix {destination_prefix}")
+                
+                # Get VPN label
+                labels = prefix_data.get('labels', [])
+                if not labels:
+                    raise ValueError(f"No label found for prefix {destination_prefix}")
+                vpn_label = labels[0]
+                
+                # Program the route
+                success, message = programmer.program_l3vpn_route(
+                    destination_prefix=destination_prefix,
+                    srv6_usid=sid,  # Use the SID directly
+                    vpn_label=vpn_label,
+                    outbound_interface=outbound_interface,
+                    bsid=bsid,
+                    table_id=table_id or 0
+                )
+                
+                if not success:
+                    raise Exception(f"Route programming failed: {message}")
+                
+                results.append({
+                    'name': f"L3VPN-{destination_prefix}",
+                    'status': 'success',
+                    'data': prefix_data,
+                    'route_programming': message
+                })
+                    
+            except Exception as e:
+                results.append({
+                    'name': f"L3VPN-{prefix_data.get('prefix', 'unknown')}",
+                    'status': 'error',
+                    'error': f"Error: {str(e)}"
+                })
+        
+        return results 

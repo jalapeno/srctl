@@ -1,3 +1,5 @@
 click
 requests
 pyyaml
+pyroute2
+vpp-papi

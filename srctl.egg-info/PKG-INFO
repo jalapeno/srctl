@@ -1,6 +1,9 @@
-Metadata-Version: 2.1
-Name: jalactl
+Metadata-Version: 2.2
+Name: srctl
 Version: 0.1.0
 Requires-Dist: click
 Requires-Dist: requests
 Requires-Dist: pyyaml
+Requires-Dist: pyroute2
+Requires-Dist: vpp-papi
+Dynamic: requires-dist

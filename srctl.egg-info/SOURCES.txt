@@ -1,8 +1,8 @@
 README.md
 setup.py
-jalactl.egg-info/PKG-INFO
-jalactl.egg-info/SOURCES.txt
-jalactl.egg-info/dependency_links.txt
-jalactl.egg-info/entry_points.txt
-jalactl.egg-info/requires.txt
-jalactl.egg-info/top_level.txt
+srctl.egg-info/PKG-INFO
+srctl.egg-info/SOURCES.txt
+srctl.egg-info/dependency_links.txt
+srctl.egg-info/entry_points.txt
+srctl.egg-info/requires.txt
+srctl.egg-info/top_level.txt

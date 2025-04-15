@@ -243,5 +243,121 @@ def get_paths(ctx, filename, source, destination, graph, path_type, direction,
             import traceback
             click.echo(traceback.format_exc(), err=True)
 
+@main.group()
+def l3vpn():
+    """L3VPN operations"""
+    pass
+
+@l3vpn.command()
+@click.option('--route-target', '-rt', required=True,
+              help='Route Target to query')
+@click.option('--prefix', 
+              help='Specific prefix to query (optional)')
+@click.option('--exact-match', is_flag=True,
+              help='Exact match for prefix (default: prefix match)')
+@click.option('--collection', default='l3vpn_v4_prefix',
+              help='Collection to query (default: l3vpn_v4_prefix)')
+@click.option('--platform', required=True, type=click.Choice(['linux', 'vpp']),
+              help='Platform to program routes on')
+@click.option('--table-id', type=int, default=0,
+              help='Table ID to program routes in (default: 0)')
+@click.option('--outbound-interface', 
+              help='Outbound interface (required for Linux)')
+@click.option('--bsid',
+              help='Binding SID (required for VPP)')
+@click.option('--apply', is_flag=True,
+              help='Apply the routes (default: just show them)')
+@click.option('-v', '--verbose', count=True,
+              help='Increase output verbosity (-v for detailed, -vv for full output)')
+@click.pass_context
+def get_routes(ctx, route_target, prefix, exact_match, collection, platform, 
+               table_id, outbound_interface, bsid, apply, verbose):
+    """Get and optionally apply L3VPN routes"""
+    try:
+        # Validate platform-specific parameters
+        if platform == 'linux' and apply and not outbound_interface:
+            raise click.UsageError("--outbound-interface is required for Linux when --apply is specified")
+        if platform == 'vpp' and apply and not bsid:
+            raise click.UsageError("--bsid is required for VPP when --apply is specified")
+        
+        # Get the routes
+        if prefix:
+            click.echo(f"Querying for prefix {prefix} in route-target {route_target}...")
+            result = ctx.obj['api'].get_l3vpn_prefix(
+                prefix=prefix,
+                route_target=route_target,
+                collection=collection,
+                exact_match=exact_match
+            )
+        else:
+            click.echo(f"Querying for all prefixes in route-target {route_target}...")
+            result = ctx.obj['api'].get_l3vpn_prefixes_by_rt(
+                route_target=route_target,
+                collection=collection
+            )
+        
+        # Display the results
+        total = result.get('total_prefixes', 0)
+        click.echo(f"Found {total} prefixes")
+        
+        if verbose == 0:
+            # Simple output
+            for prefix_data in result.get('prefixes', []):
+                prefix = prefix_data.get('prefix')
+                prefix_len = prefix_data.get('prefix_len')
+                sid = prefix_data.get('sid')
+                if isinstance(sid, list) and sid:
+                    sid = sid[0]
+                click.echo(f"  {prefix}/{prefix_len} -> {sid}")
+        elif verbose == 1:
+            # More detailed output
+            for prefix_data in result.get('prefixes', []):
+                prefix = prefix_data.get('prefix')
+                prefix_len = prefix_data.get('prefix_len')
+                sid = prefix_data.get('sid')
+                if isinstance(sid, list) and sid:
+                    sid = sid[0]
+                labels = prefix_data.get('labels', [])
+                nexthop = prefix_data.get('nexthop')
+                click.echo(f"\n  Prefix: {prefix}/{prefix_len}")
+                click.echo(f"  SID: {sid}")
+                click.echo(f"  Labels: {labels}")
+                click.echo(f"  Next-hop: {nexthop}")
+        else:
+            # Full output
+            click.echo(yaml.dump(result, indent=2))
+        
+        # Apply the routes if requested
+        if apply:
+            click.echo(f"\nApplying routes to {platform}...")
+            apply_results = ctx.obj['api'].apply_l3vpn_routes(
+                platform=platform,
+                prefixes_data=result,
+                table_id=table_id,
+                outbound_interface=outbound_interface,
+                bsid=bsid
+            )
+            
+            for result in apply_results:
+                if result['status'] == 'error':
+                    click.echo(f"Error for {result['name']}: {result['error']}", err=True)
+                    continue
+                    
+                if verbose == 0:
+                    click.echo(f"{result['name']}: {result['route_programming']}")
+                elif verbose == 1:
+                    click.echo(f"\n{result['name']}:")
+                    click.echo(f"  Route Programming: {result['route_programming']}")
+                else:
+                    click.echo(f"\n{result['name']}:")
+                    click.echo(yaml.dump(result['data'], indent=2))
+                    click.echo(f"Route Programming: {result['route_programming']}")
+                
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        if verbose > 0:
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
+
 if __name__ == '__main__':
     main() 
