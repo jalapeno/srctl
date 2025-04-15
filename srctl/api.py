@@ -39,35 +39,11 @@ class JalapenoAPI:
             # Make tableId optional with default value of 0
             table_id = vrf.get('tableId', 0)
             
-            # Create VRF if requested
-            if vrf.get('createVrf', False):
-                programmer = RouteProgrammerFactory.get_programmer(platform)
-                success, message = programmer.create_vrf(vrf_name, table_id, 
-                                                       rd=vrf.get('rd'),
-                                                       import_rts=vrf.get('importRts', []),
-                                                       export_rts=vrf.get('exportRts', []))
-                
-                if not success:
-                    results.append({
-                        'name': f"VRF {vrf_name}",
-                        'status': 'error',
-                        'error': message
-                    })
-                    continue
-                
-                results.append({
-                    'name': f"VRF {vrf_name}",
-                    'status': 'success',
-                    'message': message
-                })
-            
             # Process VRF routes
             results.extend(self._process_address_family(vrf.get('ipv4', {}), platform, 'ipv4', 
-                                                      table_id=table_id, vrf_name=vrf_name, 
-                                                      is_l3vpn=True))
+                                                      table_id=table_id, vrf_name=vrf_name))
             results.extend(self._process_address_family(vrf.get('ipv6', {}), platform, 'ipv6', 
-                                                      table_id=table_id, vrf_name=vrf_name,
-                                                      is_l3vpn=True))
+                                                      table_id=table_id, vrf_name=vrf_name))
         
         return results
 
