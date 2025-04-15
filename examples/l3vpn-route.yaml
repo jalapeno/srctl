@@ -10,19 +10,19 @@ spec:
       ipv4:
         routes:
           - name: customer1-vpn-routes
-            route_target: "15:15"
+            route_target: "9:9"
             # Optional: specific prefix to query
-            prefix: "15.15.15.0"  
+            prefix: "9.9.9.0"  
             # Optional: exact match for prefix
             exact_match: false
             # Collection to query (default: l3vpn_v4_prefix)
             collection: "l3vpn_v4_prefix"
-            outbound_interface: "eth0"  # For Linux
-            bsid: "fd00:100::1"  # For VPP
-      ipv6:
-        routes:
-          - name: customer1-vpn-routes-v6
-            route_target: "15:15"
-            collection: "l3vpn_v6_prefix"
-            outbound_interface: "eth0"  # For Linux
-            bsid: "fd00:100::2"  # For VPP
+            outbound_interface: "ens4"  # For Linux
+            #bsid: "fd00:100::1"  # For VPP
+      # ipv6:
+      #   routes:
+      #     - name: customer1-vpn-routes-v6
+      #       route_target: "15:15"
+      #       collection: "l3vpn_v6_prefix"
+      #       outbound_interface: "eth0"  # For Linux
+      #       bsid: "fd00:100::2"  # For VPP
