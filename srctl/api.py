@@ -36,9 +36,8 @@ class JalapenoAPI:
         # Process VRF/table-specific routes
         for vrf in spec.get('vrfs', []):
             vrf_name = vrf.get('name')
-            table_id = vrf.get('tableId')
-            if table_id is None:
-                raise ValueError(f"tableId must be specified for VRF {vrf_name}")
+            # Make tableId optional with default value of 0
+            table_id = vrf.get('tableId', 0)
             
             # Create VRF if requested
             if vrf.get('createVrf', False):
@@ -72,7 +71,7 @@ class JalapenoAPI:
         
         return results
 
-    def _process_address_family(self, af_config, platform, af_type, table_id, vrf_name=None, is_l3vpn=False):
+    def _process_address_family(self, af_config, platform, af_type, table_id, vrf_name=None):
         """Process routes for a specific address family"""
         results = []
         routes = af_config.get('routes', [])
@@ -91,7 +90,45 @@ class JalapenoAPI:
                 
                 # Add table_id to route configuration
                 route['table_id'] = table_id
+                if vrf_name:
+                    route['vrf_name'] = vrf_name
                 
+                # Check if this is an L3VPN route with route_target
+                if 'route_target' in route:
+                    # This is an L3VPN route lookup
+                    collection = route.get('collection', f'l3vpn_{af_type}_prefix')
+                    
+                    if 'prefix' in route:
+                        # Query for specific prefix
+                        prefix_data = self.get_l3vpn_prefix(
+                            prefix=route['prefix'],
+                            route_target=route['route_target'],
+                            collection=collection,
+                            exact_match=route.get('exact_match', False)
+                        )
+                    else:
+                        # Query for all prefixes in route target
+                        prefix_data = self.get_l3vpn_prefixes_by_rt(
+                            route_target=route['route_target'],
+                            collection=collection
+                        )
+                    
+                    # Apply the routes
+                    l3vpn_results = self.apply_l3vpn_routes(
+                        platform=platform,
+                        prefixes_data=prefix_data,
+                        table_id=table_id,
+                        outbound_interface=route.get('outbound_interface'),
+                        bsid=route.get('bsid')
+                    )
+                    
+                    results.extend(l3vpn_results)
+                    continue
+                
+                # Regular path-based route processing
+                if 'graph' not in route:
+                    raise ValueError("'graph' is required for path-based routes")
+                    
                 # Build the base URL with optional metric
                 base_url = f"{self.config.base_url}/api/v1/graphs/{route['graph']}/shortest_path"
                 if 'metric' in route:
