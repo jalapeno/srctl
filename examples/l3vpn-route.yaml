@@ -6,7 +6,7 @@ spec:
   platform: linux  # or vpp
   vrfs:
     - name: customer1
-      #tableId: 100  # Optional, defaults to 0
+      tableId: 0  # Optional, defaults to 0
       ipv4:
         routes:
           - name: customer1-vpn-routes
