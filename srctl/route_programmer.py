@@ -125,8 +125,6 @@ class LinuxRouteProgrammer(RouteProgrammer):
                 raise ValueError("destination_prefix is required")
             if not kwargs.get('outbound_interface'):
                 raise ValueError("outbound_interface is required")
-            if not vpn_label:
-                raise ValueError("vpn_label is required for L3VPN routes")
             
             # Get table ID, default to main table (254)
             table_id = kwargs.get('table_id', 254)
@@ -138,34 +136,21 @@ class LinuxRouteProgrammer(RouteProgrammer):
             except ValueError as e:
                 raise ValueError(f"Invalid destination prefix: {e}")
 
-            # Validate and normalize the SRv6 USID
+            # Validate and normalize the SRv6 SID
             try:
-                expanded_usid = self._expand_srv6_usid(srv6_usid)
-                ipaddress.IPv6Address(expanded_usid)
+                # The SID from the API already includes the function encoding
+                # We just need to make sure it's a valid IPv6 address
+                ipaddress.IPv6Address(srv6_usid)
             except ValueError as e:
-                raise ValueError(f"Invalid SRv6 USID: {e}")
+                raise ValueError(f"Invalid SRv6 SID: {e}")
             
             # Get interface index
             if_index = self.iproute.link_lookup(ifname=kwargs.get('outbound_interface'))[0]
             
-            # Create encap info with VPN SID
-            # For SRv6 L3VPN, we need to use the DT4/DT6 function with the VPN label
-            # Format: <locator>:<function>:<arguments>:<vpn-label>
-            # Where function is DT4 or DT6 (Endpoint with decapsulation and IPv4/IPv6 table lookup)
-            
-            # Extract the locator part (first 4 hextets)
-            locator_parts = expanded_usid.split(':')[:4]
-            locator = ':'.join(locator_parts)
-            
-            # Determine if IPv4 or IPv6 based on destination prefix
-            dt_function = "dt4" if isinstance(net, ipaddress.IPv4Network) else "dt6"
-            
-            # Create the VPN SID
-            vpn_sid = f"{locator}:{dt_function}:{vpn_label}::"
-            
+            # Create encap info - use the SID directly from the API
             encap = {'type': 'seg6',
                     'mode': 'encap',
-                    'segs': [vpn_sid]}
+                    'segs': [srv6_usid]}
             
             # Try to delete existing route first
             try:
@@ -184,7 +169,7 @@ class LinuxRouteProgrammer(RouteProgrammer):
                              oif=if_index,
                              encap=encap)
             
-            return True, f"L3VPN route to {destination_prefix} via {vpn_sid} programmed successfully in table {table_id}"
+            return True, f"L3VPN route to {destination_prefix} via {srv6_usid} programmed successfully in table {table_id}"
         except Exception as e:
             return False, f"Failed to program L3VPN route: {str(e)}"
 
@@ -296,28 +281,17 @@ class VPPRouteProgrammer(RouteProgrammer):
             bsid = kwargs.get('bsid')
             if not bsid:
                 raise ValueError("BSID is required for VPP routes")
-            if not vpn_label:
-                raise ValueError("vpn_label is required for L3VPN routes")
 
             # Validate inputs
             try:
                 net = ipaddress.ip_network(destination_prefix)
-                expanded_usid = self._expand_srv6_usid(srv6_usid)
+                # The SID from the API already includes the function encoding
+                ipaddress.IPv6Address(srv6_usid)
             except ValueError as e:
                 raise ValueError(f"Invalid input parameters: {str(e)}")
 
-            # Extract the locator part (first 4 hextets)
-            locator_parts = expanded_usid.split(':')[:4]
-            locator = ':'.join(locator_parts)
-            
-            # Determine if IPv4 or IPv6 based on destination prefix
-            dt_function = "DT4" if isinstance(net, ipaddress.IPv4Network) else "DT6"
-            
-            # Create the VPN SID
-            vpn_sid = f"{locator}:{dt_function}:{vpn_label}::"
-
             # Add SR policy with VPN SID
-            policy_cmd = f"sr policy add bsid {bsid} next {vpn_sid} encap"
+            policy_cmd = f"sr policy add bsid {bsid} next {srv6_usid} encap"
             if 'VPP_DEBUG' in os.environ:
                 print(f"Executing: vppctl {policy_cmd}")
             result = self.subprocess.run(['vppctl'] + policy_cmd.split(), 
