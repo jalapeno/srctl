@@ -1,0 +1,21 @@
+apiVersion: jalapeno.srv6/v1
+kind: PathRequest
+metadata:
+  name: l3vpn-orange
+spec:
+  platform: linux  # or vpp
+  vrfs:
+    - name: orange
+      tableId: 0  # Optional, defaults to 0
+      ipv4:
+        routes:
+          - name: orange-vrf
+            route_target: "9:9"
+            # Optional: specific prefix to query
+            prefix: "9.9.9.0"  
+            # Optional: exact match for prefix
+            exact_match: false
+            # Collection to query (default: l3vpn_v4_prefix)
+            collection: "l3vpn_v4_prefix"
+            outbound_interface: "eth2"  # For Linux
+
